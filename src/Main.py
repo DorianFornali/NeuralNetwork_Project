@@ -4,6 +4,7 @@ def to_CSV(dataframe, nomDataframe, booleanIndex):
     path = f'../outputs/{nomDataframe}'
     dataframe.to_csv(path, index=booleanIndex)
 
+import pandas as pd
 
 if __name__ == '__main__':
 
@@ -51,4 +52,68 @@ if __name__ == '__main__':
     to_CSV(results_filtered, "results_filtered", False)
     to_CSV(shoothouts_filtered, "shoothouts_filtered", False)
 
-    # to_CSV(daily_ranking, "daily_ranking", True) Ne pas le mettre dans github, le fichier est trop gros
+    #to_CSV(daily_ranking, "daily_ranking", True)# Ne pas le mettre dans github, le fichier est trop gros
+
+    #2.3 merging Data
+    #we will build new dataframe named rera
+
+    dropped_daily_ranking= daily_ranking.drop('country_full', axis=1) #I dropped country_full because there are 2 columns named country_full in daily_ranking
+    dropped_daily_ranking=dropped_daily_ranking.reset_index()#date and country_full are now normal columns not indexes anymore
+
+
+    rera = pd.merge(results_filtered, dropped_daily_ranking, left_on=['home_team', 'date'], right_on=['country_full', 'date'], how='left')
+
+    # Renaming columns  for the home team
+    rera = rera.rename(columns={
+        'rank': 'home_rank',
+        'total_points': 'home_total_points',
+        'previous_points': 'home_previous_points',
+        'rank_change': 'home_rank_change'
+    })
+
+    #Merging the datasets based on away_team and date
+    rera = pd.merge(rera, dropped_daily_ranking, left_on=['away_team', 'date'], right_on=['country_full', 'date'],
+                         how='left')
+
+    # Renaming columns  for the away team
+    rera = rera.rename(columns={
+        'rank': 'away_rank',
+        'total_points': 'away_total_points',
+        'previous_points': 'away_previous_points',
+        'rank_change': 'away_rank_change'
+    })
+
+    # Drop unusful columns
+    rera = rera.drop(['country_full_x', 'country_full_y', 'country_abrv_x',
+                                'confederation_x', 'confederation_y', 'country_abrv_y'], axis=1)
+    #rera contains now all columns of results_filtred and 8 additional columns comme demandé dans la question
+
+
+
+    # Display the resulting DataFrame
+    #print(rera)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
