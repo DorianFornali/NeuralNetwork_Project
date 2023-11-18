@@ -83,26 +83,35 @@ if __name__ == '__main__':
         'rank_change': 'away_rank_change'
     })
 
-    # Drop unusful columns
-    rera = rera.drop(['country_full_x', 'country_full_y', 'country_abrv_x',
-                                'confederation_x', 'confederation_y', 'country_abrv_y'], axis=1)
-    #rera contains now all columns of results_filtred and 8 additional columns comme demandé dans la question
+# question 4 (did question 4 before 3 to clean rera and make it easier to add new features)
+#we will do the final tweaking and re-clean the DF after adding all the features of question 3
 
-
-
-    # Display the resulting DataFrame
-    #print(rera)
-
-
-
+# Drop columns which contain redundunt information
+rera = rera.drop(['country_full_x', 'country_full_y', 'country_abrv_x',
+                  'confederation_x', 'confederation_y', 'country_abrv_y'], axis=1)
+# drop rows which still contain missing data
+rera.dropna(inplace=True)
 
 
 
 
+#question 3
+#3.1 adding average number of goals made in the last 5 matches
+#I added two columns home_averageScore and away_averageScore
+
+copy=rera
+
+copy['Date'] = pd.to_datetime(rera['date'])
 
 
+copy.sort_values(by=['home_team', 'date'], inplace=True)
 
+# window =5 because we calculate the average during the last 5 matches
+copy['home_averageScore'] = copy.groupby('home_team')['home_score'].rolling(window=5, min_periods=1).mean().reset_index(level=0, drop=True)
+copy.sort_values(by=['away_team', 'date'], inplace=True)
+copy['away_averageScore'] = copy.groupby('away_team')['away_score'].rolling(window=5, min_periods=1).mean().reset_index(level=0, drop=True)
 
+#to_CSV(copy,"rera improved",False)
 
 
 
