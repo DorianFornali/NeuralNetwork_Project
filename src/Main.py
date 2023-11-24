@@ -10,11 +10,13 @@ def to_CSV(dataframe, nomDataframe, booleanIndex):
     path = f'../outputs/{nomDataframe}.csv'
     dataframe.to_csv(path, index=booleanIndex)
 
-def prepareDataForEntry(data):
+def prepareDataForEntry(data, numericColumns):
     # Prepare the match for prediction in the Random Forest
 
     # We create the dummies (one-hot encoding for the categorical features)
-    data = pd.get_dummies(data, columns=["tournament", "city", "country", "neutral", "home_team", "away_team"])
+    data = pd.get_dummies(rf_dataset, columns=["date", "tournament", "city", "country", "neutral", "home_team", "away_team"])
+
+
 
     return data
 
@@ -168,7 +170,7 @@ if __name__ == '__main__':
     # The data should be ready for the model that we are going to build and train
     # --------------------------------------------------------------------------
 
-    # We splash the data into 1D arrays
+    # We splash the data into 1D arrays (Have no clue why ...)
     y_train_raveled = np.ravel(y_train)
     y_test_raveled = np.ravel(y_test)
 
@@ -182,10 +184,37 @@ if __name__ == '__main__':
     randomForestGridSearch = GridSearchCV(randomForestModel, params, cv=5, verbose=1, n_jobs=-1)
 
     # Now we train the model
-    randomForestGridSearch.fit(X_train, y_train_raveled)
+    randomForestGridSearch.fit(X_train, y_train)
 
-    RF = randomForestGridSearch.best_estimator_
+    randomForestModel = randomForestGridSearch.best_estimator_
 
-    y_pred = RF.predict(X_test)
+    y_pred = randomForestModel.predict(X_test)
     print(mean_squared_error(y_test, y_pred, squared=False))
+
+    # Prediction d'un match tampon
+    # On crée un dataframe avec les données du match, en omettant evidemment les colonnes a predire
+
+    match = {
+        'date': ['2021-08-01'],
+        'tournament': ['FIFA World Cup qualification'],
+        'city': ['Paris'],
+        'country': ['France'],
+        'neutral': [0],
+        'home_team': ['France'],
+        'away_team': ['Germany'],
+        'home_rank': [2],
+        'home_total_points': [1744],
+        'home_previous_points': [1744],
+        'home_rank_change': [0],
+        'away_rank': [12],
+        'away_total_points': [1609],
+        'away_previous_points': [1609],
+        'away_rank_change': [0],
+        'home_averageScore': [2.4],
+        'away_averageScore': [1.8]
+    }
+
+    # We prepare the dataframe of the match in the same way that we did earlier
+
+    match = prepareDataForEntry(pd.DataFrame(match), numericalColumns)
 
