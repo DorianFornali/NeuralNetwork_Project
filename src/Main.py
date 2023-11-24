@@ -1,4 +1,10 @@
 import pandas as pd
+import numpy as np
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.preprocessing import StandardScaler
+
 
 def to_CSV(dataframe, nomDataframe, booleanIndex):
     path = f'../outputs/{nomDataframe}.csv'
@@ -117,7 +123,7 @@ if __name__ == '__main__':
     copy['home_averageScore'] = copy.groupby('home_team')['home_score'].rolling(window=5, min_periods=1).mean().reset_index(level=0, drop=True)
     copy.sort_values(by=['away_team', 'date'], inplace=True)
     copy['away_averageScore'] = copy.groupby('away_team')['away_score'].rolling(window=5, min_periods=1).mean().reset_index(level=0, drop=True)
-
+    copy.drop('Date', axis=1, inplace=True) # This column is in double
 
     to_CSV(copy,"rera improved",False)
 
@@ -129,10 +135,11 @@ if __name__ == '__main__':
     # We might apply a "weight" to some of the features, to give more importance to them.
     # We might also normalize the data, to make it easier for the model to learn.
 
-    rf_dataset = copy.copy()
+    rf_dataset = copy.copy(deep=True)
+    # rf_dataset.drop('date', axis=1, inplace=True) # Questionable choice, I decided to drop the date column because it blocks the
+                                                    # training sets preparation
 
     dummies = pd.get_dummies(rf_dataset, columns=["date", "tournament", "city", "country", "neutral", "home_team", "away_team"])
-    print(dummies.head(5))
 
     to_CSV(rf_dataset, "rf_dataset", False)
 
@@ -143,10 +150,6 @@ if __name__ == '__main__':
 
     columnsToDrop = ["date", "tournament", "city", "country", "neutral", "home_team", "away_team", "home_score", "away_score"]
 
-    # We quickly switch 'date' from datatime to string, to be able to cast it into a float64
-    rf_dataset['date'] = rf_dataset['date'].dt.strftime('%m-%d-%Y')
-
-
     X_numeric = rf_dataset.drop(columnsToDrop, axis=1).astype('float64')
     # X_numeric only contains the numeric features (before one-hot encoding)
     # Except the features to predict (the goals scored by each team)
@@ -154,12 +157,37 @@ if __name__ == '__main__':
     numericalColumns = X_numeric.columns
 
     X = pd.concat([X_numeric, dummies], axis=1)
-    print(X.info())
+    print("X shape: ", X.shape)
+    print("y shape: ", y.shape)
+    # Now we can split the data into the training set and the test set
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=10)
 
+    # We can now normalize the data
+    sc = StandardScaler().fit(X_train[numericalColumns])
+    X_train[numericalColumns] = sc.transform(X_train[numericalColumns])
+    X_test[numericalColumns] = sc.transform(X_test[numericalColumns])
 
+    # The data should be ready for the model that we are going to build and train
+    # --------------------------------------------------------------------------
 
+    # We splash the data into 1D arrays
+    y_train = np.ravel(y_train)
+    y_test = np.ravel(y_test)
 
+    # Creating our list of parameters, and the model
+    params = {"max_depth": [20], "min_samples_split": [10],
+              "max_leaf_nodes": [175], "min_samples_leaf": [5],
+              "n_estimators": [250], "max_features": ["sqrt"]
+              }
 
+    randomForestModel = RandomForestClassifier(random_state=1)
+    randomForestGridSearch = GridSearchCV(randomForestModel, params, cv=5, verbose=1, n_jobs=-1)
+    randomForestGridSearch.fit(X_train, y_train)
+
+    RF = randomForestGridSearch.best_estimator
+
+    y_pred = RF.predict(X_test)
+    print(mean_squared_error(y_test, y_pred, squared=False))
 
 
 
