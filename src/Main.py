@@ -10,15 +10,28 @@ def to_CSV(dataframe, nomDataframe, booleanIndex):
     path = f'../outputs/{nomDataframe}.csv'
     dataframe.to_csv(path, index=booleanIndex)
 
-def prepareDataForEntry(data, numericColumns):
-    # Prepare the match for prediction in the Random Forest
+def prepareDataForEntry(entry_df, numerical_columns, training_columns):
+    # One-hot encode categorical columns
+    dummies = pd.get_dummies(entry_df, columns=["tournament", "city", "country", "neutral", "home_team", "away_team"])
 
-    # We create the dummies (one-hot encoding for the categorical features)
-    data = pd.get_dummies(rf_dataset, columns=["date", "tournament", "city", "country", "neutral", "home_team", "away_team"])
+    # We need to make sure that the one-hot encoded dataframe has the same columns as the training set and same order
+    dummies = dummies.reindex(columns=training_columns, fill_value=0)
+
+    # Extract numerical features
+    X_numeric = entry_df.drop(["tournament", "city", "country", "neutral", "home_team", "away_team"], axis=1).astype('float64')
+
+    # Concatenate numerical features and one-hot encoded features
+    X = pd.concat([X_numeric, dummies], axis=1)
+
+    # Normalize numerical features
+    sc = StandardScaler().fit(X[numerical_columns])
+    X[numerical_columns] = sc.transform(X[numerical_columns])
+
+    return X
 
 
 
-    return data
+
 
 
 if __name__ == '__main__':
@@ -138,10 +151,10 @@ if __name__ == '__main__':
     # We might also normalize the data, to make it easier for the model to learn.
 
     rf_dataset = copy.copy(deep=True)
-    # rf_dataset.drop('date', axis=1, inplace=True) # Questionable choice, I decided to drop the date column because it blocks the
-                                                    # training sets preparation
+    rf_dataset = rf_dataset.drop(["date"], axis=1)
+    # I decided to drop the date column because it is very troublesome for the prediction model
 
-    dummies = pd.get_dummies(rf_dataset, columns=["date", "tournament", "city", "country", "neutral", "home_team", "away_team"])
+    dummies = pd.get_dummies(rf_dataset, columns=["tournament", "city", "country", "neutral", "home_team", "away_team"])
 
     to_CSV(rf_dataset, "rf_dataset", False)
 
@@ -150,7 +163,7 @@ if __name__ == '__main__':
     # Now we separate the data into the training set and the test set
     y = rf_dataset[columnsToPredict]
 
-    columnsToDrop = ["date", "tournament", "city", "country", "neutral", "home_team", "away_team", "home_score", "away_score"]
+    columnsToDrop = ["tournament", "city", "country", "neutral", "home_team", "away_team", "home_score", "away_score"]
 
     X_numeric = rf_dataset.drop(columnsToDrop, axis=1).astype('float64')
     # X_numeric only contains the numeric features (before one-hot encoding)
@@ -194,12 +207,14 @@ if __name__ == '__main__':
     # Prediction d'un match tampon
     # On crée un dataframe avec les données du match, en omettant evidemment les colonnes a predire
 
+    to_CSV(X_train, "X_train", False)
+
     match = {
-        'date': ['2021-08-01'],
+        #'date': '01-08-2021',
         'tournament': ['FIFA World Cup qualification'],
         'city': ['Paris'],
         'country': ['France'],
-        'neutral': [0],
+        'neutral': True,
         'home_team': ['France'],
         'away_team': ['Germany'],
         'home_rank': [2],
@@ -215,6 +230,12 @@ if __name__ == '__main__':
     }
 
     # We prepare the dataframe of the match in the same way that we did earlier
+    match = prepareDataForEntry(pd.DataFrame(match), numericalColumns, X_train.columns)
+    to_CSV(match, "match_df", False)
 
-    match = prepareDataForEntry(pd.DataFrame(match), numericalColumns)
+    for i in range(len(X.columns)):
+        print(f"X column : {X_train.columns[i]} and match column : {match.columns[i]}")
+
+    # We can now predict the score of the match
+    match_pred = randomForestModel.predict(match)
 
