@@ -157,11 +157,12 @@ if __name__ == '__main__':
     numericalColumns = X_numeric.columns
 
     X = pd.concat([X_numeric, dummies], axis=1)
-    print("X shape: ", X.shape)
-    print("y shape: ", y.shape)
+    print("X shape before split ", X.shape)
+    print("y shape before split", y.shape)
+
     # Now we can split the data into the training set and the test set
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=10)
-
+    print("y qfter split shape: ", y_train.shape)
     # We can now normalize the data
     sc = StandardScaler().fit(X_train[numericalColumns])
     X_train[numericalColumns] = sc.transform(X_train[numericalColumns])
@@ -171,8 +172,9 @@ if __name__ == '__main__':
     # --------------------------------------------------------------------------
 
     # We splash the data into 1D arrays
-    y_train = np.ravel(y_train)
-    y_test = np.ravel(y_test)
+    print("Y_train shape before ravel: ", X_train.shape)
+    y_train_raveled = np.ravel(y_train)
+    y_test_raveled = np.ravel(y_test)
 
     # Creating our list of parameters, and the model
     params = {"max_depth": [20], "min_samples_split": [10],
@@ -182,19 +184,14 @@ if __name__ == '__main__':
 
     randomForestModel = RandomForestClassifier(random_state=1)
     randomForestGridSearch = GridSearchCV(randomForestModel, params, cv=5, verbose=1, n_jobs=-1)
+    print("X_train shape: ", X_train.shape)
+    print("y_train shape: ", y_train.shape)
+
+    # Now we train the model
     randomForestGridSearch.fit(X_train, y_train)
 
-    RF = randomForestGridSearch.best_estimator
+    RF = randomForestGridSearch.best_estimator_
 
     y_pred = RF.predict(X_test)
     print(mean_squared_error(y_test, y_pred, squared=False))
-
-
-
-
-
-
-
-
-
 
