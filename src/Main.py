@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.model_selection import train_test_split, GridSearchCV, KFold
 from sklearn.preprocessing import StandardScaler
 
 
@@ -157,12 +157,9 @@ if __name__ == '__main__':
     numericalColumns = X_numeric.columns
 
     X = pd.concat([X_numeric, dummies], axis=1)
-    print("X shape before split ", X.shape)
-    print("y shape before split", y.shape)
 
     # Now we can split the data into the training set and the test set
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=10)
-    print("y qfter split shape: ", y_train.shape)
     # We can now normalize the data
     sc = StandardScaler().fit(X_train[numericalColumns])
     X_train[numericalColumns] = sc.transform(X_train[numericalColumns])
@@ -172,7 +169,6 @@ if __name__ == '__main__':
     # --------------------------------------------------------------------------
 
     # We splash the data into 1D arrays
-    print("Y_train shape before ravel: ", X_train.shape)
     y_train_raveled = np.ravel(y_train)
     y_test_raveled = np.ravel(y_test)
 
@@ -182,13 +178,11 @@ if __name__ == '__main__':
               "n_estimators": [250], "max_features": ["sqrt"]
               }
 
-    randomForestModel = RandomForestClassifier(random_state=1)
+    randomForestModel = RandomForestRegressor(random_state=1)
     randomForestGridSearch = GridSearchCV(randomForestModel, params, cv=5, verbose=1, n_jobs=-1)
-    print("X_train shape: ", X_train.shape)
-    print("y_train shape: ", y_train.shape)
 
     # Now we train the model
-    randomForestGridSearch.fit(X_train, y_train)
+    randomForestGridSearch.fit(X_train, y_train_raveled)
 
     RF = randomForestGridSearch.best_estimator_
 
