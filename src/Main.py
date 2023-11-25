@@ -21,6 +21,14 @@ def prepareDataForEntry(match, numerical_columns, training_columns):
     match[numerical_columns] = sc.transform(match[numerical_columns])
     return match
 
+def getFeatureImportance(randomForestModel, training_columns):
+    # We can now get the feature importance from the model
+    feature_importance = pd.DataFrame(randomForestModel.feature_importances_, index=training_columns,
+                                      columns=['importance']).sort_values('importance', ascending=False)
+
+    to_CSV(feature_importance, "feature_importance", True)
+
+
 
 
 
@@ -193,29 +201,31 @@ if __name__ == '__main__':
 
     randomForestModel = randomForestGridSearch.best_estimator_
 
+    # Getting the meansquare of the model, features importance etc ...
     y_pred = randomForestModel.predict(X_test)
     print("Mean square error on test set:", mean_squared_error(y_test, y_pred, squared=False))
+    getFeatureImportance(randomForestModel, X_train.columns)
 
     # Prediction d'un match tampon
     # On crée un dataframe avec les données du match, en omettant evidemment les colonnes a predire
 
     match = {
         'tournament': ['FIFA World Cup qualification'],
-        'city': ['Paris'],
-        'country': ['France'],
+        'city': ['Gibraltar'],
+        'country': ['Gibraltar'],
         'neutral': True,
-        'home_team': ['France'],
-        'away_team': ['Gibraltar'],
-        'home_rank': [2],
-        'home_total_points': [1744],
-        'home_previous_points': [1744],
+        'home_team': ['Gibraltar'],
+        'away_team': ['France'],
+        'home_rank': [165],
+        'home_total_points': [215],
+        'home_previous_points': [215],
         'home_rank_change': [0],
-        'away_rank': [165],
-        'away_total_points': [215],
-        'away_previous_points': [215],
+        'away_rank': [2],
+        'away_total_points': [1744],
+        'away_previous_points': [1744],
         'away_rank_change': [0],
-        'home_averageScore': [2.4],
-        'away_averageScore': [0.4]
+        'home_averageScore': [0.4],
+        'away_averageScore': [2.4]
     }
 
     # We prepare the dataframe of the match in the same way that we did earlier
