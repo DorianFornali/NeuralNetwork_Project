@@ -29,11 +29,6 @@ def getFeatureImportance(randomForestModel, training_columns):
     to_CSV(feature_importance, "feature_importance", True)
 
 
-
-
-
-
-
 if __name__ == '__main__':
 
     ### on lit les databases
@@ -142,21 +137,23 @@ if __name__ == '__main__':
 
     to_CSV(copy,"rera improved",False)
 
+
+    # ---------------------------------------------------------------------------
     # Random Forest Regressor ---------------------------------------------------
+    # ---------------------------------------------------------------------------
+
     # We will build a random forest regressor using scikit learn.
 
     # First, we need to prepare the data for the model.
     # We will encode the categorical features (= columns) as one-hot numeric features.
-    # We might apply a "weight" to some of the features, to give more importance to them.
-    # We might also normalize the data, to make it easier for the model to learn.
+    # TODO! We might apply a "weight" to some of the features, to give more importance to them.
+    # We will also normalize the data, to make it easier for the model to learn.
 
     rf_dataset = copy.copy(deep=True)
     rf_dataset = rf_dataset.drop(["date"], axis=1)
     # I decided to drop the date column because it is very troublesome for the prediction model
 
     dummies = pd.get_dummies(rf_dataset, columns=["tournament", "city", "country", "neutral", "home_team", "away_team"])
-
-    to_CSV(rf_dataset, "rf_dataset", False)
 
     columnsToPredict = ["home_score", "away_score"]  # What the RF will try to predict
 
@@ -183,9 +180,6 @@ if __name__ == '__main__':
     # The data should be ready for the model that we are going to build and train
     # --------------------------------------------------------------------------
 
-    # We splash the data into 1D arrays (Have no clue why ...)
-    y_train_raveled = np.ravel(y_train)
-    y_test_raveled = np.ravel(y_test)
 
     # Creating our list of parameters, and the model
     params = {"max_depth": [20], "min_samples_split": [10],
@@ -198,16 +192,18 @@ if __name__ == '__main__':
 
     # Now we train the model
     randomForestGridSearch.fit(X_train, y_train)
-
+    # We apply to our model the best parameters found by the grid search
     randomForestModel = randomForestGridSearch.best_estimator_
 
     # Getting the meansquare of the model, features importance etc ...
     y_pred = randomForestModel.predict(X_test)
-    print("Mean square error on test set:", mean_squared_error(y_test, y_pred, squared=False))
+    print("RFG Mean square error on test set:", mean_squared_error(y_test, y_pred, squared=False))
     getFeatureImportance(randomForestModel, X_train.columns)
 
     # Prediction d'un match tampon
     # On crée un dataframe avec les données du match, en omettant evidemment les colonnes a predire
+    # TODO! Cette partie sera dynamique par la suite: nous n'aurons que les noms des équipes, il faudra construire le dataframe
+    # TODO! en allant chercher les données de ces équipes les plus récentes dans la database
 
     match = {
         'tournament': ['FIFA World Cup qualification'],
@@ -235,5 +231,5 @@ if __name__ == '__main__':
     # We can now predict the score of the match
     match_pred = randomForestModel.predict(match)
 
-    print(match_pred)
+    print(f"Home team score: {match_pred[0][0]}, Away team score: {match_pred[0][1]}")
 
