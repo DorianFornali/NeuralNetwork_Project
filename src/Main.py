@@ -10,24 +10,16 @@ def to_CSV(dataframe, nomDataframe, booleanIndex):
     path = f'../outputs/{nomDataframe}.csv'
     dataframe.to_csv(path, index=booleanIndex)
 
-def prepareDataForEntry(entry_df, numerical_columns, training_columns):
-    # One-hot encode categorical columns
-    dummies = pd.get_dummies(entry_df, columns=["tournament", "city", "country", "neutral", "home_team", "away_team"])
+def prepareDataForEntry(match, numerical_columns, training_columns):
+    # Encoding categorical features
+    match = pd.get_dummies(match, columns=["tournament", "city", "country", "neutral", "home_team", "away_team"])
 
     # We need to make sure that the one-hot encoded dataframe has the same columns as the training set and same order
-    dummies = dummies.reindex(columns=training_columns, fill_value=0)
+    match = match.reindex(columns=training_columns, fill_value=0)
 
-    # Extract numerical features
-    X_numeric = entry_df.drop(["tournament", "city", "country", "neutral", "home_team", "away_team"], axis=1).astype('float64')
-
-    # Concatenate numerical features and one-hot encoded features
-    X = pd.concat([X_numeric, dummies], axis=1)
-
-    # Normalize numerical features
-    sc = StandardScaler().fit(X[numerical_columns])
-    X[numerical_columns] = sc.transform(X[numerical_columns])
-
-    return X
+    # Normalizing numerical features
+    match[numerical_columns] = sc.transform(match[numerical_columns])
+    return match
 
 
 
@@ -202,40 +194,36 @@ if __name__ == '__main__':
     randomForestModel = randomForestGridSearch.best_estimator_
 
     y_pred = randomForestModel.predict(X_test)
-    print(mean_squared_error(y_test, y_pred, squared=False))
+    print("Mean square error on test set:", mean_squared_error(y_test, y_pred, squared=False))
 
     # Prediction d'un match tampon
     # On crée un dataframe avec les données du match, en omettant evidemment les colonnes a predire
 
-    to_CSV(X_train, "X_train", False)
-
     match = {
-        #'date': '01-08-2021',
         'tournament': ['FIFA World Cup qualification'],
         'city': ['Paris'],
         'country': ['France'],
         'neutral': True,
         'home_team': ['France'],
-        'away_team': ['Germany'],
+        'away_team': ['Gibraltar'],
         'home_rank': [2],
         'home_total_points': [1744],
         'home_previous_points': [1744],
         'home_rank_change': [0],
-        'away_rank': [12],
-        'away_total_points': [1609],
-        'away_previous_points': [1609],
+        'away_rank': [165],
+        'away_total_points': [215],
+        'away_previous_points': [215],
         'away_rank_change': [0],
         'home_averageScore': [2.4],
-        'away_averageScore': [1.8]
+        'away_averageScore': [0.4]
     }
 
     # We prepare the dataframe of the match in the same way that we did earlier
+    match = pd.DataFrame(match)
     match = prepareDataForEntry(pd.DataFrame(match), numericalColumns, X_train.columns)
-    to_CSV(match, "match_df", False)
-
-    for i in range(len(X.columns)):
-        print(f"X column : {X_train.columns[i]} and match column : {match.columns[i]}")
 
     # We can now predict the score of the match
     match_pred = randomForestModel.predict(match)
+
+    print(match_pred)
 
