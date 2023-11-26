@@ -11,6 +11,8 @@ def to_CSV(dataframe, nomDataframe, booleanIndex):
     dataframe.to_csv(path, index=booleanIndex)
 
 def prepareDataForEntry(match, numerical_columns, training_columns):
+    # This function prepares the data for the entry in the model (encoding, normalizing, etc ...)
+
     # Encoding categorical features
     match = pd.get_dummies(match, columns=["tournament", "city", "country", "neutral", "home_team", "away_team"])
 
@@ -22,11 +24,81 @@ def prepareDataForEntry(match, numerical_columns, training_columns):
     return match
 
 def getFeatureImportance(randomForestModel, training_columns):
-    # We can now get the feature importance from the model
+    # Creates a .csv with the feature importance of each feature
     feature_importance = pd.DataFrame(randomForestModel.feature_importances_, index=training_columns,
                                       columns=['importance']).sort_values('importance', ascending=False)
 
     to_CSV(feature_importance, "feature_importance", True)
+
+def getMatchDataFrame(team1, team2, city, country, numericalColumns, training_columns):
+    # This function returns the dataframe of the match between team1 and team2
+    # We will have to fetch the data in the dataset (avg goals ...)
+
+    data = {}
+    fifa_ranks = pd.read_csv("../databases/fifa_ranking-2023-07-20.csv")
+    rera_improved = pd.read_csv("../outputs/rera_improved.csv")
+
+    """
+    Match example -
+    match = {
+        'tournament': ['FIFA World Cup qualification'],
+        'city': ['Gibraltar'],
+        'country': ['Gibraltar'],
+        'neutral': True,
+        'home_team': ['Gibraltar'],
+        'away_team': ['France'],
+        'home_rank': [165],
+        'home_total_points': [215],
+        'home_previous_points': [215],
+        'home_rank_change': [0],
+        'away_rank': [2],
+        'away_total_points': [1744],
+        'away_previous_points': [1744],
+        'away_rank_change': [0],
+        'home_averageScore': [0.4],
+        'away_averageScore': [2.4]
+    }
+    """
+
+    data['tournament'] = "FIFA World Cup"
+    data['city'] = city
+    data['country'] = country
+    data['neutral'] = True
+    data['home_team'] = team1
+    data['away_team'] = team2
+    fifa_ranks.set_index('country_full', inplace=True)
+    data['home_rank'] = fifa_ranks.loc[team1]['rank'] # For this one, we fetch the most recent rank of the team in fifa_ranking csv
+    data['home_total_points'] = fifa_ranks.loc[team1]['total_points']
+    data['home_previous_points'] = fifa_ranks.loc[team1]['previous_points']
+    data['home_rank_change'] = fifa_ranks.loc[team1]['rank_change']
+    data['away_rank'] = fifa_ranks.loc[team2]['rank']
+    data['away_total_points'] = fifa_ranks.loc[team2]['total_points']
+    data['away_previous_points'] = fifa_ranks.loc[team2]['previous_points']
+    data['away_rank_change'] = fifa_ranks.loc[team2]['rank_change']
+
+    # For the average scores, it's different since we fetch the information from a different dataset
+    # which is rera_improved.csv, also we need to take the most recent information so we need to sort the dataset by date
+
+    rera_improved.sort_values(by=['date'], inplace=True)
+    temp_dataframe = rera_improved[(rera_improved['home_team'] == team1)]
+    most_recent_data = temp_dataframe.iloc[0]
+    data['home_averageScore'] = most_recent_data['home_averageScore']
+
+    temp_dataframe = rera_improved[(rera_improved['away_team'] == team2)]
+    most_recent_data = temp_dataframe.iloc[0]
+    data['away_averageScore'] = most_recent_data['away_averageScore']
+
+    if team1 == country:
+        # If a team is playing in its own country, it must be team_1 when function called
+        data['neutral'] = False
+
+    print("data: ", data)
+
+    matchDF = pd.DataFrame(data)
+
+    print("Match dataframe ABOUT TO BE PREPARED: ", matchDF)
+
+    return prepareDataForEntry(matchDF, numericalColumns, training_columns)
 
 
 if __name__ == '__main__':
@@ -75,7 +147,7 @@ if __name__ == '__main__':
     to_CSV(results_filtered, "results_filtered", False)
     to_CSV(shoothouts_filtered, "shoothouts_filtered", False)
 
-    #to_CSV(daily_ranking, "daily_ranking", True)# Ne pas le mettre dans github, le fichier est trop gros
+    to_CSV(daily_ranking, "daily_ranking", True)# Ne pas le mettre dans github, le fichier est trop gros
 
     #2.3 merging Data
     #we will build new dataframe named rera
@@ -135,7 +207,7 @@ if __name__ == '__main__':
     copy['away_averageScore'] = copy.groupby('away_team')['away_score'].rolling(window=5, min_periods=1).mean().reset_index(level=0, drop=True)
     copy.drop('Date', axis=1, inplace=True) # This column is in double
 
-    to_CSV(copy,"rera improved",False)
+    to_CSV(copy,"rera_improved",False)
 
 
     # ---------------------------------------------------------------------------
@@ -227,6 +299,7 @@ if __name__ == '__main__':
     # We prepare the dataframe of the match in the same way that we did earlier
     match = pd.DataFrame(match)
     match = prepareDataForEntry(pd.DataFrame(match), numericalColumns, X_train.columns)
+    # match = getMatchDataFrame("Gibraltar", "France", "Gibraltar", "Gibraltar", numericalColumns, X_train.columns)
 
     # We can now predict the score of the match
     match_pred = randomForestModel.predict(match)
