@@ -76,6 +76,31 @@ def getMatchDataFrame(team1, team2, city, country, numericalColumns, training_co
 
     return prepareDataForEntry(matchDF, numericalColumns, training_columns)
 
+def parse_championship_file(file_path):
+    groups = {}
+
+    with open(file_path, 'r', encoding='utf-8') as file:
+        lines = file.readlines()
+
+    # Supprimer les sauts de ligne
+    lines = [line.strip() for line in lines]
+
+    # Séparer les groupes
+    group_names = lines[0].split(';')
+    num_groups = len(group_names)
+
+    # Initialiser les groupes
+    for group_name in group_names:
+        groups[group_name] = []
+
+    # Parcourir les lignes restantes pour ajouter les pays aux groupes
+    for line in lines[1:]:
+        countries = line.split(';')
+        for i in range(num_groups):
+            groups[group_names[i]].append(countries[i])
+
+    return groups
+
 
 if __name__ == '__main__':
 
@@ -250,34 +275,24 @@ if __name__ == '__main__':
 
     # Prediction d'un match tampon
     # On crée un dataframe avec les données du match, en omettant evidemment les colonnes a predire
-    # TODO! Cette partie sera dynamique par la suite: nous n'aurons que les noms des équipes, il faudra construire le dataframe
-    # TODO! en allant chercher les données de ces équipes les plus récentes dans la database
 
-    match = {
-        'tournament': ['FIFA World Cup qualification'],
-        'city': ['Gibraltar'],
-        'country': ['Gibraltar'],
-        'neutral': True,
-        'home_team': ['Gibraltar'],
-        'away_team': ['France'],
-        'home_rank': [165],
-        'home_total_points': [215],
-        'home_previous_points': [215],
-        'home_rank_change': [0],
-        'away_rank': [2],
-        'away_total_points': [1744],
-        'away_previous_points': [1744],
-        'away_rank_change': [0],
-        'home_averageScore': [0.4],
-        'away_averageScore': [2.4]
-    }
-
-    # We prepare the dataframe of the match in the same way that we did earlier
-    #match = pd.DataFrame(match)
-    #match = prepareDataForEntry(pd.DataFrame(match), numericalColumns, X_train.columns)
+    # We create the RF entry by specifying the teams, the city and the country of the match.
+    # The function getDataFrameForEntry will fetch the data from the dataset and prepare it for the entry in the model
     match = getMatchDataFrame("Gibraltar", "France", "Gibraltar", "Gibraltar", numericalColumns, X_train.columns)
+
     # We can now predict the score of the match
     match_pred = randomForestModel.predict(match)
 
     print(f"Home team score: {match_pred[0][0]}, Away team score: {match_pred[0][1]}")
+
+
+    # ---------------------------------------------------------------------------
+    # CHAMPIONSHIP PREDICTION ---------------------------------------------------
+    # ---------------------------------------------------------------------------
+
+    # We have .csv file containing the teams and groups of the championship
+    # So first we parse it: we WON'T treat it as a dataframe but as a simple text file
+
+    championship = parse_championship_file('../databases/championship.csv')
+
 
