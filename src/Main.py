@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from itertools import permutations
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split, GridSearchCV, KFold
@@ -97,9 +98,24 @@ def parse_championship_file(file_path):
     for line in lines[1:]:
         countries = line.split(';')
         for i in range(num_groups):
-            groups[group_names[i]].append(countries[i])
+            groups[group_names[i]].append({countries[i].lstrip(): 0})
 
     return groups
+
+def simulateGroupPhase(group, championship):
+    # Simulates the matches for a group in the championship
+    # Will add the points to the teams in the group
+    # +3 if won, +1 if draw, +0 if loss
+
+    # First we get all the matches to play: each country has to play against each other once
+    countries = []
+    for i in championship[group]:
+        for j in i:
+            countries.append(j)
+
+    matches_to_play = list(permutations(countries, 2))
+
+    print(matches_to_play)
 
 
 if __name__ == '__main__':
@@ -278,7 +294,7 @@ if __name__ == '__main__':
 
     # We create the RF entry by specifying the teams, the city and the country of the match.
     # The function getDataFrameForEntry will fetch the data from the dataset and prepare it for the entry in the model
-    match = getMatchDataFrame("Gibraltar", "France", "Gibraltar", "Gibraltar", numericalColumns, X_train.columns)
+    match = getMatchDataFrame("Gibraltar", "France", "London", "England", numericalColumns, X_train.columns)
 
     # We can now predict the score of the match
     match_pred = randomForestModel.predict(match)
@@ -294,5 +310,14 @@ if __name__ == '__main__':
     # So first we parse it: we WON'T treat it as a dataframe but as a simple text file
 
     championship = parse_championship_file('../databases/championship.csv')
+    city_host = 'London'
+    country_host = 'England'
 
+    print(championship)
+
+    # We will now simulate the groups phase
+    #for group in championship:
+        #simulateGroupPhase(group, championship)
+
+    simulateGroupPhase('Group A', championship)
 
