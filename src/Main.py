@@ -1,9 +1,8 @@
 import pandas as pd
-import numpy as np
 from itertools import combinations
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
-from sklearn.model_selection import train_test_split, GridSearchCV, KFold
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.preprocessing import StandardScaler
 
 
@@ -34,6 +33,7 @@ def getFeatureImportance(randomForestModel, training_columns):
 def getMatchDataFrame(team1, team2, city, country, numericalColumns, training_columns):
     # This function returns the dataframe of the match between team1 and team2
     # We will have to fetch the data in the dataset (avg goals ...)
+    # The goal is to create a proper entry for the regressor random forest to predict
 
     data = {}
     fifa_ranks = pd.read_csv("../databases/fifa_ranking-2023-07-20.csv")
@@ -58,10 +58,19 @@ def getMatchDataFrame(team1, team2, city, country, numericalColumns, training_co
     # For the average scores, it's different since we fetch the information from a different dataset
     # which is rera_improved, since it contains all the data we added
 
+    homeTeamAvgScores = rera_improved.loc[rera_improved['home_team'] == team1, 'home_averageScore'].values
+    if(len(homeTeamAvgScores) == 0):
+        # This means the country has no match data in rera_improved, so we will fill the average goals with 0
+        # This is for example the case of Cote d'Ivoire or Sao Tome e Principe
+        print(f"{team1} has no match data, filling average goals with 0")
+    else:
+        data['home_averageScore'] = homeTeamAvgScores[-1]
 
-    data['home_averageScore'] = rera_improved.loc[rera_improved['home_team'] == team1, 'home_averageScore'].values[-1]
-
-    data['away_averageScore'] = rera_improved.loc[rera_improved['away_team'] == team2, 'away_averageScore'].values[-1]
+    awayTeamAvgScores = rera_improved.loc[rera_improved['away_team'] == team2, 'away_averageScore'].values
+    if (len(awayTeamAvgScores) == 0):
+        print(f"{team2} has no match data, filling average goals with 0")
+    else:
+        data['away_averageScore'] = awayTeamAvgScores[-1]
 
     if team1 == country:
         # If a team is playing in its own country, it must be team_1 when function called
@@ -109,6 +118,7 @@ def simulateGroupPhase(group, championship, country_host, numericalColumns, trai
         for j in i:
             countries.append(j)
 
+
     matches_to_play = list(combinations(countries, 2)) # Returns all the combinations of 2 countries, without repetition
 
     # Now we will simulate each match
@@ -122,8 +132,13 @@ def simulateGroupPhase(group, championship, country_host, numericalColumns, trai
             team1 = team2
             team2 = team1
 
+        try:
+            matchDF = getMatchDataFrame(team1, team2, city_host, country_host, numericalColumns, training_columns)
+        except:
+            print("ERROR: One of the teams is not in the dataset, watch carefully the spelling")
+            print(f"The problem comes from \"{team1}\" or \"{team2}\"")
+            exit(1)
 
-        matchDF = getMatchDataFrame(team1, team2, city_host, country_host, numericalColumns, training_columns)
         matchResult = randomForestModel.predict(matchDF)
         print(f"GROUP PHASE | {team1} - {team2}")
         print("SCORE: ", matchResult[0][0], " - ", matchResult[0][1])
@@ -333,12 +348,12 @@ if __name__ == '__main__':
 
     # We create the RF entry by specifying the teams, the city and the country of the match.
     # The function getDataFrameForEntry will fetch the data from the dataset and prepare it for the entry in the model
-    match = getMatchDataFrame("Croatia", "France", "London", "England", numericalColumns, X_train.columns)
-    #1.0086043320535598 - 1.1538077627617118
-    # We can now predict the score of the match
-    match_pred = randomForestModel.predict(match)
+    # match = getMatchDataFrame("Croatia", "France", "London", "England", numericalColumns, X_train.columns)
 
-    print(f"Home team score: {match_pred[0][0]}, Away team score: {match_pred[0][1]}")
+    # We can now predict the score of the match
+    # match_pred = randomForestModel.predict(match)
+
+    # print(f"Home team score: {match_pred[0][0]}, Away team score: {match_pred[0][1]}")
 
 
     # ---------------------------------------------------------------------------
@@ -353,7 +368,28 @@ if __name__ == '__main__':
     country_host = 'England'
 
     # We will now simulate the groups phase
-    #for group in championship:
-        #simulateGroupPhase(group, championship, country_host ,numericalColumns, X_train.columns)
+    for group in championship:
+        championship = simulateGroupPhase(group, championship, country_host ,numericalColumns, X_train.columns)
 
+    # Groups phase is over, we select the 2 best teams of each group to go to the knockout phase
+    print("GROUP PHRASE RESULTS: ------------------")
+    print(championship)
+
+    groupWinners = {}
+    for group, teams in championship.items():
+        sorted_teams = sorted(teams, key=lambda x: list(x.values())[0], reverse=True)
+        groupWinners[group] = [sorted_teams[0], sorted_teams[1]]
+
+    for i in groupWinners.items():
+        # Quite a messy way to extract the country names from the dictionary
+        country = i[1][0]
+        currentGrpWinners = []
+        for j in country.keys():
+            currentGrpWinners.append(j)
+
+        country = i[1][1]
+        for j in country.keys():
+            currentGrpWinners.append(j)
+
+        print("WINNERS OF ", i[0], ": ", currentGrpWinners)
 
