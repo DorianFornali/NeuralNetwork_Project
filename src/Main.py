@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from itertools import permutations
+from itertools import combinations
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split, GridSearchCV, KFold
@@ -72,29 +72,24 @@ def getMatchDataFrame(team1, team2, city, country, numericalColumns, training_co
         # We replace every data by a list containing itself to avoid oncoming problem
         data[i] = [data[i]]
 
-    print("data: ", data)
     matchDF = pd.DataFrame(data)
 
     return prepareDataForEntry(matchDF, numericalColumns, training_columns)
 
 def parse_championship_file(file_path):
+    # This function parses the championship file and returns a dictionary of groups and their points
     groups = {}
 
     with open(file_path, 'r', encoding='utf-8') as file:
         lines = file.readlines()
-
-    # Supprimer les sauts de ligne
     lines = [line.strip() for line in lines]
 
-    # Séparer les groupes
     group_names = lines[0].split(';')
     num_groups = len(group_names)
 
-    # Initialiser les groupes
     for group_name in group_names:
         groups[group_name] = []
 
-    # Parcourir les lignes restantes pour ajouter les pays aux groupes
     for line in lines[1:]:
         countries = line.split(';')
         for i in range(num_groups):
@@ -102,10 +97,11 @@ def parse_championship_file(file_path):
 
     return groups
 
-def simulateGroupPhase(group, championship):
+def simulateGroupPhase(group, championship, country_host, numericalColumns, training_columns):
     # Simulates the matches for a group in the championship
     # Will add the points to the teams in the group
     # +3 if won, +1 if draw, +0 if loss
+
 
     # First we get all the matches to play: each country has to play against each other once
     countries = []
@@ -113,9 +109,52 @@ def simulateGroupPhase(group, championship):
         for j in i:
             countries.append(j)
 
-    matches_to_play = list(permutations(countries, 2))
+    matches_to_play = list(combinations(countries, 2)) # Returns all the combinations of 2 countries, without repetition
 
-    print(matches_to_play)
+    # Now we will simulate each match
+    for match in matches_to_play:
+        team1 = match[0]
+        team2 = match[1]
+
+        if(team2 == country_host):
+            # If the second team is the host country, we will put it in team1 as requested in the getMatchDataFrame function
+            tmp = team1
+            team1 = team2
+            team2 = team1
+
+
+        matchDF = getMatchDataFrame(team1, team2, city_host, country_host, numericalColumns, training_columns)
+        matchResult = randomForestModel.predict(matchDF)
+        print(f"GROUP PHASE | {team1} - {team2}")
+        print("SCORE: ", matchResult[0][0], " - ", matchResult[0][1])
+
+        # If very slight difference between the scores, we will say it is a draw since we are in the group phase
+        deltaScore = matchResult[0][0] - matchResult[0][1]
+        if(abs(deltaScore) < 0.05):
+            print("Very similar scores, we call it a draw, +1 to both team's score")
+            championship = addPoints(team1, championship, 1)
+            championship = addPoints(team2, championship, 1)
+        else:
+            if(deltaScore > 0):
+                print(f"{team1} won, +3")
+                championship = addPoints(team1, championship, 3)
+            else:
+                print(f"{team2} won, +3")
+                championship = addPoints(team2, championship, 3)
+
+    return championship
+
+def addPoints(country, championship, points):
+    # Adds points to a country in the championship
+    # Used for the knockout phase
+    for group in championship:
+        for team in championship[group]:
+            if(country in team):
+                team[country] += points
+                return championship
+
+    return championship
+
 
 
 if __name__ == '__main__':
@@ -294,8 +333,8 @@ if __name__ == '__main__':
 
     # We create the RF entry by specifying the teams, the city and the country of the match.
     # The function getDataFrameForEntry will fetch the data from the dataset and prepare it for the entry in the model
-    match = getMatchDataFrame("Gibraltar", "France", "London", "England", numericalColumns, X_train.columns)
-
+    match = getMatchDataFrame("Croatia", "France", "London", "England", numericalColumns, X_train.columns)
+    #1.0086043320535598 - 1.1538077627617118
     # We can now predict the score of the match
     match_pred = randomForestModel.predict(match)
 
@@ -313,11 +352,8 @@ if __name__ == '__main__':
     city_host = 'London'
     country_host = 'England'
 
-    print(championship)
-
     # We will now simulate the groups phase
     #for group in championship:
-        #simulateGroupPhase(group, championship)
+        #simulateGroupPhase(group, championship, country_host ,numericalColumns, X_train.columns)
 
-    simulateGroupPhase('Group A', championship)
 
