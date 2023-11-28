@@ -38,27 +38,6 @@ def getMatchDataFrame(team1, team2, city, country, numericalColumns, training_co
     fifa_ranks = pd.read_csv("../databases/fifa_ranking-2023-07-20.csv")
     rera_improved = pd.read_csv("../outputs/rera_improved.csv")
 
-    """
-    Match example -
-    match = {
-        'tournament': ['FIFA World Cup qualification'],
-        'city': ['Gibraltar'],
-        'country': ['Gibraltar'],
-        'neutral': True,
-        'home_team': ['Gibraltar'],
-        'away_team': ['France'],
-        'home_rank': [165],
-        'home_total_points': [215],
-        'home_previous_points': [215],
-        'home_rank_change': [0],
-        'away_rank': [2],
-        'away_total_points': [1744],
-        'away_previous_points': [1744],
-        'away_rank_change': [0],
-        'home_averageScore': [0.4],
-        'away_averageScore': [2.4]
-    }
-    """
 
     data['tournament'] = "FIFA World Cup"
     data['city'] = city
@@ -66,37 +45,34 @@ def getMatchDataFrame(team1, team2, city, country, numericalColumns, training_co
     data['neutral'] = True
     data['home_team'] = team1
     data['away_team'] = team2
-    fifa_ranks.set_index('country_full', inplace=True)
-    data['home_rank'] = fifa_ranks.loc[team1]['rank'] # For this one, we fetch the most recent rank of the team in fifa_ranking csv
-    data['home_total_points'] = fifa_ranks.loc[team1]['total_points']
-    data['home_previous_points'] = fifa_ranks.loc[team1]['previous_points']
-    data['home_rank_change'] = fifa_ranks.loc[team1]['rank_change']
-    data['away_rank'] = fifa_ranks.loc[team2]['rank']
-    data['away_total_points'] = fifa_ranks.loc[team2]['total_points']
-    data['away_previous_points'] = fifa_ranks.loc[team2]['previous_points']
-    data['away_rank_change'] = fifa_ranks.loc[team2]['rank_change']
+    data['home_rank'] = fifa_ranks.loc[fifa_ranks['country_full'] == team1, 'rank'].values[-1] # For this one, we fetch the most recent rank of the team in fifa_ranking csv
+    data['home_total_points'] = fifa_ranks.loc[fifa_ranks['country_full'] == team1, 'total_points'].values[-1]
+    data['home_previous_points'] = fifa_ranks.loc[fifa_ranks['country_full'] == team1, 'previous_points'].values[-1]
+    data['home_rank_change'] = fifa_ranks.loc[fifa_ranks['country_full'] == team1, 'rank_change'].values[-1]
+    data['away_rank'] = fifa_ranks.loc[fifa_ranks['country_full'] == team2, 'rank'].values[-1]
+    data['away_total_points'] = fifa_ranks.loc[fifa_ranks['country_full'] == team2, 'total_points'].values[-1]
+    data['away_previous_points'] = fifa_ranks.loc[fifa_ranks['country_full'] == team1, 'previous_points'].values[-1]
+    data['away_rank_change'] = fifa_ranks.loc[fifa_ranks['country_full'] == team2, 'rank_change'].values[-1]
 
     # For the average scores, it's different since we fetch the information from a different dataset
-    # which is rera_improved.csv, also we need to take the most recent information so we need to sort the dataset by date
+    # which is rera_improved, since it contains all the data we added
 
-    rera_improved.sort_values(by=['date'], inplace=True)
-    temp_dataframe = rera_improved[(rera_improved['home_team'] == team1)]
-    most_recent_data = temp_dataframe.iloc[0]
-    data['home_averageScore'] = most_recent_data['home_averageScore']
 
-    temp_dataframe = rera_improved[(rera_improved['away_team'] == team2)]
-    most_recent_data = temp_dataframe.iloc[0]
-    data['away_averageScore'] = most_recent_data['away_averageScore']
+    data['home_averageScore'] = rera_improved.loc[rera_improved['home_team'] == team1, 'home_averageScore'].values[-1]
+
+    data['away_averageScore'] = rera_improved.loc[rera_improved['away_team'] == team2, 'away_averageScore'].values[-1]
 
     if team1 == country:
         # If a team is playing in its own country, it must be team_1 when function called
         data['neutral'] = False
 
+
+    for i in data:
+        # We replace every data by a list containing itself to avoid oncoming problem
+        data[i] = [data[i]]
+
     print("data: ", data)
-
     matchDF = pd.DataFrame(data)
-
-    print("Match dataframe ABOUT TO BE PREPARED: ", matchDF)
 
     return prepareDataForEntry(matchDF, numericalColumns, training_columns)
 
@@ -297,10 +273,9 @@ if __name__ == '__main__':
     }
 
     # We prepare the dataframe of the match in the same way that we did earlier
-    match = pd.DataFrame(match)
-    match = prepareDataForEntry(pd.DataFrame(match), numericalColumns, X_train.columns)
-    # match = getMatchDataFrame("Gibraltar", "France", "Gibraltar", "Gibraltar", numericalColumns, X_train.columns)
-
+    #match = pd.DataFrame(match)
+    #match = prepareDataForEntry(pd.DataFrame(match), numericalColumns, X_train.columns)
+    match = getMatchDataFrame("Gibraltar", "France", "Gibraltar", "Gibraltar", numericalColumns, X_train.columns)
     # We can now predict the score of the match
     match_pred = randomForestModel.predict(match)
 
