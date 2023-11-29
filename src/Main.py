@@ -145,7 +145,7 @@ def simulateGroupPhase(group, championship, country_host, numericalColumns, trai
 
         # If very slight difference between the scores, we will say it is a draw since we are in the group phase
         deltaScore = matchResult[0][0] - matchResult[0][1]
-        if(abs(deltaScore) < 0.05):
+        if(abs(deltaScore) < 0.02):
             print("Very similar scores, we call it a draw, +1 to both team's score")
             championship = addPoints(team1, championship, 1)
             championship = addPoints(team2, championship, 1)
@@ -169,6 +169,68 @@ def addPoints(country, championship, points):
                 return championship
 
     return championship
+
+def simulateKnockoutPhase(remainingCountries, city_host, country_host, numericalColumns, trainingColumns, isFirstSetOfMatches):
+    # Will simulate all of the matches during the knockout phase recursively
+    # by updating the winners and list of matched to play until eventually we reach the finals
+
+    matchesToPlay = []
+    # Two possible cases: either we are on the very first set of matches of the knockout phase
+    # which mean we apply the A1 vs B2, B1 vs A2 etc ... rule
+    # Or we are on the next set of matches, which means we apply W1 vs W2, W3 vs W4 etc ...
+    if(isFirstSetOfMatches):
+        for i in range(1, len(remainingCountries), 2):
+            # A1 plays B2, B1 plays A2 etc ...
+            matchesToPlay.append([remainingCountries[i - 1][0], remainingCountries[i][1]])
+            matchesToPlay.append([remainingCountries[i - 1][1], remainingCountries[i][0]])
+    else:
+        for i in range(1, len(remainingCountries), 2):
+            # W1 plays W2, W3 plays W4 etc ...
+            matchesToPlay.append([remainingCountries[i - 1], remainingCountries[i]])
+
+    remainingCountries = [] # We reset the remainingCountries and will append it by the winners, then call recursively the function on it
+
+    print("MATCHES TO PLAY: ", matchesToPlay)
+    print("")
+    for i in matchesToPlay:
+        winner = ""
+
+        # Prediction of the match
+        matchDF = getMatchDataFrame(i[0], i[1], city_host, country_host, numericalColumns, trainingColumns)
+        matchResult = randomForestModel.predict(matchDF)
+
+        print(f"KNOCKOUT PHASE | {i[0]} - {i[1]}")
+        print("SCORE: ", matchResult[0][0], " - ", matchResult[0][1])
+
+        # We decide what to do according to the results we obtained
+        deltaScore = matchResult[0][0] - matchResult[0][1]
+        if (abs(deltaScore) < 0.005):
+            # If very slight difference between the scores, we will go to the shootouts to determine the winner
+            print("Very similar scores, we go to shootouts")
+            #winner = shootouts(i[0], i[1])
+        else:
+            if (deltaScore > 0):
+                print(f"{i[0]} won, goes to the next stage")
+                winner = i[0]
+            else:
+                print(f"{i[1]} won, goes to the next stage")
+                winner = i[1]
+
+        remainingCountries.append(winner)
+        print("")
+    print("CURRENT PHASE WINNERS: ", remainingCountries)
+    print("GOING TO NEXT SET OF MATCHES")
+
+    if(len(remainingCountries) > 1):
+        simulateKnockoutPhase(remainingCountries, city_host, country_host, numericalColumns, trainingColumns, False)
+    else:
+        print("------------------------------------------------------------------")
+        print("WE HAVE A WORLD CUP WINNER: ", remainingCountries[0])
+        print("------------------------------------------------------------------")
+
+
+
+
 
 
 
@@ -289,7 +351,6 @@ if __name__ == '__main__':
 
     # First, we need to prepare the data for the model.
     # We will encode the categorical features (= columns) as one-hot numeric features.
-    # TODO! We might apply a "weight" to some of the features, to give more importance to them.
     # We will also normalize the data, to make it easier for the model to learn.
 
     rf_dataset = copy.copy(deep=True)
@@ -367,7 +428,7 @@ if __name__ == '__main__':
     city_host = 'London'
     country_host = 'England'
 
-    # We will now simulate the groups phase
+    # WE WILL NOW SIMULATE THE GROUP PHASE --------------------------------------
     for group in championship:
         championship = simulateGroupPhase(group, championship, country_host ,numericalColumns, X_train.columns)
 
@@ -380,6 +441,7 @@ if __name__ == '__main__':
         sorted_teams = sorted(teams, key=lambda x: list(x.values())[0], reverse=True)
         groupWinners[group] = [sorted_teams[0], sorted_teams[1]]
 
+    remainingCountries = []
     for i in groupWinners.items():
         # Quite a messy way to extract the country names from the dictionary
         country = i[1][0]
@@ -391,5 +453,14 @@ if __name__ == '__main__':
         for j in country.keys():
             currentGrpWinners.append(j)
 
+        remainingCountries.append(currentGrpWinners)
+
         print("WINNERS OF ", i[0], ": ", currentGrpWinners)
+
+    # WE WILL NOW SIMULATE THE KNOCKOUT PHASE --------------------------------------
+    # 1st of Group A plays the 2nd of Group B, 1st of Group B plays the 2nd of Group A, etc ...
+    # Knockout phase contains all of the sets of matches, from 8th of finals (for example) to the finals
+
+    simulateKnockoutPhase(remainingCountries, city_host, country_host, numericalColumns, X_train.columns, True)
+
 
