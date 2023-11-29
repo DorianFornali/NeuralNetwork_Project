@@ -130,13 +130,15 @@ def simulateGroupPhase(group, championship, country_host, numericalColumns, trai
             # If the second team is the host country, we will put it in team1 as requested in the getMatchDataFrame function
             tmp = team1
             team1 = team2
-            team2 = team1
+            team2 = tmp
 
         try:
             matchDF = getMatchDataFrame(team1, team2, city_host, country_host, numericalColumns, training_columns)
         except:
             print("ERROR: One of the teams is not in the dataset, watch carefully the spelling")
             print(f"The problem comes from \"{team1}\" or \"{team2}\"")
+            print("For instance, China is referred as \"China PR\" in the dataset")
+            print("Please be careful and refer to rankings_filtered.csv to see the exact spelling of the country")
             exit(1)
 
         matchResult = randomForestModel.predict(matchDF)
