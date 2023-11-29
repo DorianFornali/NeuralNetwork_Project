@@ -492,5 +492,3 @@ if __name__ == '__main__':
     # Knockout phase contains all of the sets of matches, from 8th of finals (for example) to the finals
 
     simulateKnockoutPhase(remainingCountries, city_host, country_host, numericalColumns, X_train.columns, True)
-
-    #print(decideShootoutsWinner("France", "Italy"))
