@@ -36,7 +36,7 @@ def getMatchDataFrame(team1, team2, city, country, numericalColumns, training_co
     # The goal is to create a proper entry for the regressor random forest to predict
 
     data = {}
-    fifa_ranks = pd.read_csv("../databases/fifa_ranking-2023-07-20.csv")
+    fifa_ranks = pd.read_csv("../outputs/rankings_filtered.csv")
     rera_improved = pd.read_csv("../outputs/rera_improved.csv")
 
 
@@ -204,10 +204,10 @@ def simulateKnockoutPhase(remainingCountries, city_host, country_host, numerical
 
         # We decide what to do according to the results we obtained
         deltaScore = matchResult[0][0] - matchResult[0][1]
-        if (abs(deltaScore) < 0.005):
+        if (abs(deltaScore) < 0.02):
             # If very slight difference between the scores, we will go to the shootouts to determine the winner
             print("Very similar scores, we go to shootouts")
-            #winner = shootouts(i[0], i[1])
+            winner = decideShootoutsWinner(i[0], i[1])
         else:
             if (deltaScore > 0):
                 print(f"{i[0]} won, goes to the next stage")
@@ -229,7 +229,37 @@ def simulateKnockoutPhase(remainingCountries, city_host, country_host, numerical
         print("------------------------------------------------------------------")
 
 
+def decideShootoutsWinner(team1, team2):
+    # Simulates the shootouts between two teams
+    # In fact it is way less complicated than simulating,
+    # We will just take a look at the shootouts.csv and take into account the amount of shootouts won by each team
+    # and if they already won against each other in the past
+    shootoutsCSV = pd.read_csv("../databases/shootouts.csv")
 
+    team1_wins, team2_wins = (0, 0)
+
+    # We fetch in the dataset if such a shootout already happened between the two teams in the past
+    # We add the wins according to these previous shootouts
+    team1_wins += len(shootoutsCSV.loc[(shootoutsCSV['home_team'] == team1) & (shootoutsCSV['away_team'] == team2) & (shootoutsCSV['winner'] == team1)])
+    team1_wins += len(shootoutsCSV.loc[(shootoutsCSV['home_team'] == team2) & (shootoutsCSV['away_team'] == team1) & (shootoutsCSV['winner'] == team1)])
+
+    team2_wins += len(shootoutsCSV.loc[(shootoutsCSV['home_team'] == team1) & (shootoutsCSV['away_team'] == team2) & (shootoutsCSV['winner'] == team2)])
+    team2_wins += len(shootoutsCSV.loc[(shootoutsCSV['home_team'] == team2) & (shootoutsCSV['away_team'] == team1) & (shootoutsCSV['winner'] == team2)])
+
+    if(team1_wins == team2_wins):
+        # We cannot decide the winner, so we will return the team with the highest rank
+        rankings = pd.read_csv("../outputs/rankings_filtered.csv")
+        team1_rank = rankings.loc[(rankings['country_full'] == team1), 'rank'].values[-1]
+        team2_rank = rankings.loc[(rankings['country_full'] == team2), 'rank'].values[-1]
+        if(team1_rank < team2_rank):
+            return team1
+        else:
+            return team2
+
+    if(team1_wins > team2_wins):
+        return team1
+    else:
+        return team2
 
 
 
@@ -463,4 +493,4 @@ if __name__ == '__main__':
 
     simulateKnockoutPhase(remainingCountries, city_host, country_host, numericalColumns, X_train.columns, True)
 
-
+    #print(decideShootoutsWinner("France", "Italy"))
