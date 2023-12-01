@@ -20,7 +20,8 @@ def prepareDataForEntry(match, numerical_columns, training_columns):
     match = match.reindex(columns=training_columns, fill_value=0)
 
     # Normalizing numerical features
-    match[numerical_columns] = sc.transform(match[numerical_columns])
+    ### WE DECIDE NOT TO NORMALIZE THE DATA FOR THE RANDOM FOREST REGRESSOR ###
+    # match[numerical_columns] = sc.transform(match[numerical_columns])
     return match
 
 def getFeatureImportance(randomForestModel, training_columns):
@@ -136,10 +137,9 @@ def simulateGroupPhase(group, championship, country_host, numericalColumns, trai
             matchDF = getMatchDataFrame(team1, team2, city_host, country_host, numericalColumns, training_columns)
         except:
             print("ERROR: One of the teams is not in the dataset, watch carefully the spelling")
-            print("DEPRECATED")
             print(f"The problem comes from \"{team1}\" or \"{team2}\"")
             print("For instance, China is referred as \"China PR\" in the dataset")
-            print("Please be careful and refer to rankings_filtered.csv to see the exact spelling of the country")
+            print("Please be careful and refer to FIFA_country_list.csv to see the exact spelling of the countries")
             exit(1)
 
         matchResult = randomForestModel.predict(matchDF)
@@ -225,11 +225,9 @@ def simulateKnockoutPhase(remainingCountries, city_host, country_host, numerical
     print("GOING TO NEXT SET OF MATCHES")
 
     if(len(remainingCountries) > 1):
-        simulateKnockoutPhase(remainingCountries, city_host, country_host, numericalColumns, trainingColumns, False)
+        return simulateKnockoutPhase(remainingCountries, city_host, country_host, numericalColumns, trainingColumns, False)
     else:
-        print("------------------------------------------------------------------")
-        print("WE HAVE A WORLD CUP WINNER: ", remainingCountries[0])
-        print("------------------------------------------------------------------")
+        return remainingCountries[0]
 
 
 def decideShootoutsWinner(team1, team2):
@@ -300,7 +298,7 @@ if __name__ == '__main__':
 
     ## On déclare la date de début ainsi que la date de fin
 
-    start_date = '1996-01-01'
+    start_date = '2012-01-01'
     end_date = "2022-12-18"
 
     # Ici la date de la database ranking s'appelle rank_date. On la remplace avec date pour homogéniser avec les autres
@@ -438,9 +436,10 @@ if __name__ == '__main__':
     # Now we can split the data into the training set and the test set
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=10)
     # We can now normalize the data
-    sc = StandardScaler().fit(X_train[numericalColumns])
-    X_train[numericalColumns] = sc.transform(X_train[numericalColumns])
-    X_test[numericalColumns] = sc.transform(X_test[numericalColumns])
+    ### WE DECIDE NOT TO NORMALIZE THE DATA FOR THE RANDOM FOREST REGRESSOR ###
+    #sc = StandardScaler().fit(X_train[numericalColumns])
+    #X_train[numericalColumns] = sc.transform(X_train[numericalColumns])
+    #X_test[numericalColumns] = sc.transform(X_test[numericalColumns])
 
     # The data should be ready for the model that we are going to build and train
     # --------------------------------------------------------------------------
@@ -465,18 +464,6 @@ if __name__ == '__main__':
     print("RFG Mean square error on test set:", mean_squared_error(y_test, y_pred, squared=False))
     getFeatureImportance(randomForestModel, X_train.columns)
 
-    # Prediction d'un match tampon
-    # On crée un dataframe avec les données du match, en omettant evidemment les colonnes a predire
-
-    # We create the RF entry by specifying the teams, the city and the country of the match.
-    # The function getDataFrameForEntry will fetch the data from the dataset and prepare it for the entry in the model
-    # match = getMatchDataFrame("Croatia", "France", "London", "England", numericalColumns, X_train.columns)
-
-    # We can now predict the score of the match
-    # match_pred = randomForestModel.predict(match)
-
-    # print(f"Home team score: {match_pred[0][0]}, Away team score: {match_pred[0][1]}")
-
 
     # ---------------------------------------------------------------------------
     # CHAMPIONSHIP PREDICTION ---------------------------------------------------
@@ -494,8 +481,8 @@ if __name__ == '__main__':
         championship = simulateGroupPhase(group, championship, country_host ,numericalColumns, X_train.columns)
 
     # Groups phase is over, we select the 2 best teams of each group to go to the knockout phase
-    print("GROUP PHASE RESULTS: ------------------")
-    print(championship)
+    print("GROUP PHASE OVER ------------------")
+    print("------------------------------------")
 
     groupWinners = {}
     for group, teams in championship.items():
@@ -522,4 +509,12 @@ if __name__ == '__main__':
     # 1st of Group A plays the 2nd of Group B, 1st of Group B plays the 2nd of Group A, etc ...
     # Knockout phase contains all of the sets of matches, from 8th of finals (for example) to the finals
 
-    simulateKnockoutPhase(remainingCountries, city_host, country_host, numericalColumns, X_train.columns, True)
+    champion = simulateKnockoutPhase(remainingCountries, city_host, country_host, numericalColumns, X_train.columns, True)
+
+    print("------------------------------------------------------------------")
+    print("WE HAVE A WORLD CUP WINNER: ", champion)
+    print("------------------------------------------------------------------")
+
+    print("\nGROUP PHASE RESULTS:")
+    for i in championship.items():
+        print(i[0], ": ", i[1])
