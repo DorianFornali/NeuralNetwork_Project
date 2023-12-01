@@ -1,4 +1,6 @@
+import sys
 import pandas as pd
+import numpy as np
 from itertools import combinations
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
@@ -9,6 +11,12 @@ from sklearn.preprocessing import StandardScaler
 def to_CSV(dataframe, nomDataframe, booleanIndex):
     path = f'../outputs/{nomDataframe}.csv'
     dataframe.to_csv(path, index=booleanIndex)
+
+def scoreToPercentage(x1, x2):
+    # Used to determine winning probability based on the score of a team in a match
+    facteur = 1
+    res = 1/ (1 + np.exp(-facteur * (x1 - x2)))
+    return (res, 1-res)
 
 def prepareDataForEntry(match, numerical_columns, training_columns):
     # This function prepares the data for the entry in the model (encoding, normalizing, etc ...)
@@ -136,15 +144,17 @@ def simulateGroupPhase(group, championship, country_host, numericalColumns, trai
         try:
             matchDF = getMatchDataFrame(team1, team2, city_host, country_host, numericalColumns, training_columns)
         except:
-            print("ERROR: One of the teams is not in the dataset, watch carefully the spelling")
-            print(f"The problem comes from \"{team1}\" or \"{team2}\"")
-            print("For instance, China is referred as \"China PR\" in the dataset")
-            print("Please be careful and refer to FIFA_country_list.csv to see the exact spelling of the countries")
+            print("ERROR: One of the teams is not in the dataset, watch carefully the spelling", file=sys.stderr)
+            print(f"The problem comes from \"{team1}\" or \"{team2}\"", file=sys.stderr)
+            print("For instance, China is referred as \"China PR\" in the dataset", file=sys.stderr)
+            print("Please be careful and refer to FIFA_country_list.csv to see the exact spelling of the countries", file=sys.stderr)
             exit(1)
 
         matchResult = randomForestModel.predict(matchDF)
         print(f"GROUP PHASE | {team1} - {team2}")
         print("SCORE: ", matchResult[0][0], " - ", matchResult[0][1])
+        percentages = scoreToPercentage(matchResult[0][0], matchResult[0][1])
+        print(f"WINNING PROBABILITY: {percentages[0]} Vs {percentages[1]}")
 
         # If very slight difference between the scores, we will say it is a draw since we are in the group phase
         deltaScore = matchResult[0][0] - matchResult[0][1]
@@ -204,19 +214,21 @@ def simulateKnockoutPhase(remainingCountries, city_host, country_host, numerical
 
         print(f"KNOCKOUT PHASE | {i[0]} - {i[1]}")
         print("SCORE: ", matchResult[0][0], " - ", matchResult[0][1])
+        percentages = scoreToPercentage(matchResult[0][0], matchResult[0][1])
+        print(f"WINNING PROBABILITY: {percentages[0]} Vs {percentages[1]}")
 
         # We decide what to do according to the results we obtained
         deltaScore = matchResult[0][0] - matchResult[0][1]
         if (abs(deltaScore) < 0.02):
             # If very slight difference between the scores, we will go to the shootouts to determine the winner
-            print("Very similar scores, we go to shootouts")
+            print("Very similar scores, we go to shootouts\n")
             winner = decideShootoutsWinner(i[0], i[1])
         else:
             if (deltaScore > 0):
-                print(f"{i[0]} won, goes to the next stage")
+                print(f"{i[0]} won, goes to the next stage\n")
                 winner = i[0]
             else:
-                print(f"{i[1]} won, goes to the next stage")
+                print(f"{i[1]} won, goes to the next stage\n")
                 winner = i[1]
 
         remainingCountries.append(winner)
@@ -289,6 +301,35 @@ def equalizeCountryNames(rankingsDataframe):
 
 if __name__ == '__main__':
 
+    # Basic script guide for command-line
+    program_arguments = sys.argv
+
+
+    if(len(program_arguments) not in [4, 5]):
+        print("ERROR: Wrong number of arguments", file=sys.stderr)
+        print("Usage: python3 Main.py <path_to_championship_csv> <city_host> <country_host>",file=sys.stderr)
+        print("Example: python3 Main.py ../databases/championship.csv London England", file=sys.stderr)
+        print("Usage: python3 Main.py <home_team> <away_team> <city_host> <country_host>", file=sys.stderr)
+        print("Example: python3 Main.py France Germany London England", file=sys.stderr)
+
+        exit(1)
+
+    if(len(program_arguments) == 4):
+        # We predict a championship, we verify that the given file is correct before data processing,
+        # not to loose useless time if the file is wrong
+
+        championship_path = program_arguments[1]
+        try:
+            championship = parse_championship_file(championship_path)
+        except:
+            print("ERROR: Wrong path to championship file", file=sys.stderr)
+
+            print("Usage: python3 Main.py <path_to_championship_csv> <city_host> <country_host>", file=sys.stderr)
+            print("Example: python3 Main.py ../databases/championship.csv London England", file=sys.stderr)
+            print("Usage: python3 Main.py <home_team> <away_team> <city_host> <country_host>", file=sys.stderr)
+            print("Example: python3 Main.py France Germany London England", file=sys.stderr)
+            exit(1)
+
     ### on lit les databases
 
     ranking = pd.read_csv("../databases/fifa_ranking-2023-07-20.csv")
@@ -298,7 +339,7 @@ if __name__ == '__main__':
 
     ## On déclare la date de début ainsi que la date de fin
 
-    start_date = '2012-01-01'
+    start_date = '1996-01-01'
     end_date = "2022-12-18"
 
     # Ici la date de la database ranking s'appelle rank_date. On la remplace avec date pour homogéniser avec les autres
@@ -414,6 +455,7 @@ if __name__ == '__main__':
 
     rf_dataset = copy.copy(deep=True)
     rf_dataset = rf_dataset.drop(["date"], axis=1)
+
     # I decided to drop the date column because it is very troublesome for the prediction model
 
     dummies = pd.get_dummies(rf_dataset, columns=["tournament", "city", "country", "neutral", "home_team", "away_team"])
@@ -465,56 +507,82 @@ if __name__ == '__main__':
     getFeatureImportance(randomForestModel, X_train.columns)
 
 
-    # ---------------------------------------------------------------------------
-    # CHAMPIONSHIP PREDICTION ---------------------------------------------------
-    # ---------------------------------------------------------------------------
+    if(len(program_arguments) == 4):
+        # We used the script to predict a championship
+        city_host = program_arguments[2]
+        country_host = program_arguments[3]
 
-    # We have .csv file containing the teams and groups of the championship
-    # So first we parse it: we WON'T treat it as a dataframe but as a simple text file
+        # ---------------------------------------------------------------------------
+        # CHAMPIONSHIP PREDICTION ---------------------------------------------------
+        # ---------------------------------------------------------------------------
 
-    championship = parse_championship_file('../databases/championship.csv')
-    city_host = 'London'
-    country_host = 'England'
+        # We have .csv file containing the teams and groups of the championship
+        # So first we parse it: we WON'T treat it as a dataframe but as a simple text file
 
-    # WE WILL NOW SIMULATE THE GROUP PHASE --------------------------------------
-    for group in championship:
-        championship = simulateGroupPhase(group, championship, country_host ,numericalColumns, X_train.columns)
 
-    # Groups phase is over, we select the 2 best teams of each group to go to the knockout phase
-    print("GROUP PHASE OVER ------------------")
-    print("------------------------------------")
+        # WE WILL NOW SIMULATE THE GROUP PHASE --------------------------------------
+        # ---------------------------------------------------------------------------
 
-    groupWinners = {}
-    for group, teams in championship.items():
-        sorted_teams = sorted(teams, key=lambda x: list(x.values())[0], reverse=True)
-        groupWinners[group] = [sorted_teams[0], sorted_teams[1]]
+        for group in championship:
+            championship = simulateGroupPhase(group, championship, country_host ,numericalColumns, X_train.columns)
 
-    remainingCountries = []
-    for i in groupWinners.items():
-        # Quite a messy way to extract the country names from the dictionary
-        country = i[1][0]
-        currentGrpWinners = []
-        for j in country.keys():
-            currentGrpWinners.append(j)
+        # Groups phase is over, we select the 2 best teams of each group to go to the knockout phase
+        print("GROUP PHASE OVER ------------------")
+        print("------------------------------------")
 
-        country = i[1][1]
-        for j in country.keys():
-            currentGrpWinners.append(j)
+        groupWinners = {}
+        for group, teams in championship.items():
+            sorted_teams = sorted(teams, key=lambda x: list(x.values())[0], reverse=True)
+            groupWinners[group] = [sorted_teams[0], sorted_teams[1]]
 
-        remainingCountries.append(currentGrpWinners)
+        remainingCountries = []
+        for i in groupWinners.items():
+            # Quite a messy way to extract the country names from the dictionary
+            country = i[1][0]
+            currentGrpWinners = []
+            for j in country.keys():
+                currentGrpWinners.append(j)
 
-        print("WINNERS OF ", i[0], ": ", currentGrpWinners)
+            country = i[1][1]
+            for j in country.keys():
+                currentGrpWinners.append(j)
 
-    # WE WILL NOW SIMULATE THE KNOCKOUT PHASE --------------------------------------
-    # 1st of Group A plays the 2nd of Group B, 1st of Group B plays the 2nd of Group A, etc ...
-    # Knockout phase contains all of the sets of matches, from 8th of finals (for example) to the finals
+            remainingCountries.append(currentGrpWinners)
 
-    champion = simulateKnockoutPhase(remainingCountries, city_host, country_host, numericalColumns, X_train.columns, True)
+            print("WINNERS OF ", i[0], ": ", currentGrpWinners)
 
-    print("------------------------------------------------------------------")
-    print("WE HAVE A WORLD CUP WINNER: ", champion)
-    print("------------------------------------------------------------------")
+        # WE WILL NOW SIMULATE THE KNOCKOUT PHASE --------------------------------------
+        # 1st of Group A plays the 2nd of Group B, 1st of Group B plays the 2nd of Group A, etc ...
+        # Knockout phase contains all the sets of matches, from 8th of finals (for example) to the finals
 
-    print("\nGROUP PHASE RESULTS:")
-    for i in championship.items():
-        print(i[0], ": ", i[1])
+        champion = simulateKnockoutPhase(remainingCountries, city_host, country_host, numericalColumns, X_train.columns, True)
+
+        print("------------------------------------------------------------------")
+        print("WE HAVE A WORLD CUP WINNER: ", champion)
+        print("------------------------------------------------------------------")
+
+        print("\nGROUP PHASE RESULTS:")
+        for i in championship.items():
+            print(i[0], ": ", i[1])
+
+    if(len(program_arguments) == 5):
+        # ---------------------------------------------------------------------------
+        # PREDICTION OF A SINGLE MATCH ----------------------------------------------
+        # ---------------------------------------------------------------------------
+
+
+        # In that use-case of the script, we want to predict
+        # the result of a match between two teams
+        home_team = program_arguments[1]
+        away_team = program_arguments[2]
+        city_host = program_arguments[3]
+        country_host = program_arguments[4]
+
+        matchDF = getMatchDataFrame(home_team, away_team, city_host, country_host, numericalColumns, X_train.columns)
+        matchResult = randomForestModel.predict(matchDF)
+        print(f"{home_team} - {away_team}")
+        print("SCORE: ", matchResult[0][0], " - ", matchResult[0][1])
+        percentages = scoreToPercentage(matchResult[0][0], matchResult[0][1])
+        print(f"WINNING PROBABILITY: {percentages[0]} Vs {percentages[1]}")
+
+    exit(0)
