@@ -62,7 +62,7 @@ def getMatchDataFrame(team1, team2, city, country, numericalColumns, training_co
     if(len(homeTeamAvgScores) == 0):
         # This means the country has no match data in rera_improved, so we will fill the average goals with 0
         # This is for example the case of Cote d'Ivoire or Sao Tome e Principe
-        print(f"{team1} has no match data, filling average goals with 0")
+        print(f"{team1} has no match data in world cups, filling average goals with 0")
     else:
         data['home_averageScore'] = homeTeamAvgScores[-1]
 
@@ -136,6 +136,7 @@ def simulateGroupPhase(group, championship, country_host, numericalColumns, trai
             matchDF = getMatchDataFrame(team1, team2, city_host, country_host, numericalColumns, training_columns)
         except:
             print("ERROR: One of the teams is not in the dataset, watch carefully the spelling")
+            print("DEPRECATED")
             print(f"The problem comes from \"{team1}\" or \"{team2}\"")
             print("For instance, China is referred as \"China PR\" in the dataset")
             print("Please be careful and refer to rankings_filtered.csv to see the exact spelling of the country")
@@ -264,7 +265,29 @@ def decideShootoutsWinner(team1, team2):
         return team2
 
 
+def equalizeCountryNames(rankingsDataframe):
+    # This function will modify the country names in the rankings_filtered to match the ones in the results_filtered (rera_improved)
 
+    # For example, United States in results are named USA in rankings,
+    # so we set all values 'USA' to 'United States' in rankings with the replace function
+    rankingsDataframe.replace('USA', 'United States', inplace=True)
+    rankingsDataframe.replace('IR Iran', 'Iran', inplace=True)
+    rankingsDataframe.replace('Korea Republic', 'South Korea', inplace=True)
+    rankingsDataframe.replace('Côte d\'Ivoire', 'Ivory Coast', inplace=True)
+    rankingsDataframe.replace('Brunei Darussalam', 'Brunei', inplace=True)
+    rankingsDataframe.replace('Cape Verde Islands', 'Cape Verde', inplace=True)
+    rankingsDataframe.replace('China PR', 'China', inplace=True)
+    rankingsDataframe.replace('Congo DR', 'DR Congo', inplace=True)
+    rankingsDataframe.replace('Kyrgyz Republic', 'Kyrgyzstan', inplace=True)
+    rankingsDataframe.replace('Korea DPR', 'North Korea', inplace=True)
+    rankingsDataframe.replace('St Kitts and Nevis', 'Saint Kitts and Nevis', inplace=True)
+    rankingsDataframe.replace('St Lucia', 'Saint Lucia', inplace=True)
+    rankingsDataframe.replace('St Vincent and the Grenadines', 'Saint Vincent and the Grenadines', inplace=True)
+    rankingsDataframe.replace('US Virgin Islands', 'U.S. Virgin Islands', inplace=True)
+
+    # These should be all the countries that have different names in the two databases
+
+    return rankingsDataframe
 
 if __name__ == '__main__':
 
@@ -305,6 +328,10 @@ if __name__ == '__main__':
     daily_ranking = rankings_filtered.set_index('date')
     daily_ranking = daily_ranking.groupby('country_full').resample('D').first()
     daily_ranking.ffill(inplace=True)
+
+    # We will now equalize the country names in the rankings_filtered.csv and the rera_improved.csv
+    # not to have variating names for the same country
+    rankings_filtered = equalizeCountryNames(rankings_filtered)
 
     # On écrit nos dataframe en csv dans le dossier outputs
     to_CSV(rankings_filtered, "rankings_filtered", False)
@@ -373,6 +400,8 @@ if __name__ == '__main__':
     copy.drop('Date', axis=1, inplace=True) # This column is in double
 
     to_CSV(copy,"rera_improved",False)
+
+
 
 
     # ---------------------------------------------------------------------------
@@ -465,7 +494,7 @@ if __name__ == '__main__':
         championship = simulateGroupPhase(group, championship, country_host ,numericalColumns, X_train.columns)
 
     # Groups phase is over, we select the 2 best teams of each group to go to the knockout phase
-    print("GROUP PHRASE RESULTS: ------------------")
+    print("GROUP PHASE RESULTS: ------------------")
     print(championship)
 
     groupWinners = {}
