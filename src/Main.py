@@ -71,13 +71,13 @@ def getMatchDataFrame(team1, team2, city, country, numericalColumns, training_co
     if(len(homeTeamAvgScores) == 0):
         # This means the country has no match data in rera_improved, so we will fill the average goals with 0
         # This is for example the case of Cote d'Ivoire or Sao Tome e Principe
-        print(f"{team1} has no match data in world cups, filling average goals with 0")
+        pass
     else:
         data['home_averageScore'] = homeTeamAvgScores[-1]
 
     awayTeamAvgScores = rera_improved.loc[rera_improved['away_team'] == team2, 'away_averageScore'].values
     if (len(awayTeamAvgScores) == 0):
-        print(f"{team2} has no match data, filling average goals with 0")
+        pass
     else:
         data['away_averageScore'] = awayTeamAvgScores[-1]
 
@@ -132,43 +132,65 @@ def simulateGroupPhase(group, championship, country_host, numericalColumns, trai
 
     # Now we will simulate each match
     for match in matches_to_play:
-        team1 = match[0]
-        team2 = match[1]
+        home_team = match[0]
+        away_team = match[1]
 
-        if(team2 == country_host):
-            # If the second team is the host country, we will put it in team1 as requested in the getMatchDataFrame function
-            tmp = team1
-            team1 = team2
-            team2 = tmp
 
         try:
-            matchDF = getMatchDataFrame(team1, team2, city_host, country_host, numericalColumns, training_columns)
+            matchDF = getMatchDataFrame(home_team, away_team, city_host, country_host, numericalColumns, training_columns)
+            reverseMatchDF = getMatchDataFrame(away_team, home_team, city_host, country_host, numericalColumns, training_columns)
         except:
             print("ERROR: One of the teams is not in the dataset, watch carefully the spelling", file=sys.stderr)
-            print(f"The problem comes from \"{team1}\" or \"{team2}\"", file=sys.stderr)
+            print(f"The problem comes from \"{home_team}\" or \"{away_team}\"", file=sys.stderr)
             print("For instance, China is referred as \"China PR\" in the dataset", file=sys.stderr)
             print("Please be careful and refer to FIFA_country_list.csv to see the exact spelling of the countries", file=sys.stderr)
             exit(1)
 
         matchResult = randomForestModel.predict(matchDF)
-        print(f"GROUP PHASE | {team1} - {team2}")
+        reverseMatchResult = randomForestModel.predict(reverseMatchDF)
+
+        deltaScoreMatch = matchResult[0][0] - matchResult[0][1]
+        deltaScoreReverseMatch = reverseMatchResult[0][0] - reverseMatchResult[0][1]
+
+        if (abs(deltaScoreReverseMatch) > abs(deltaScoreMatch)):
+            # Reverse match has a bigger delta
+            if (deltaScoreReverseMatch < 0):
+                # Home wins
+                winner = home_team
+            else:
+                # Away wins
+                winner = away_team
+
+            matchResult[0][0] = reverseMatchResult[0][1]
+            matchResult[0][1] = reverseMatchResult[0][0]
+            percentages = scoreToPercentage(reverseMatchResult[0][1], reverseMatchResult[0][0])
+
+            if not(percentages[0] > 0.49 and percentages[0] < 0.51):
+                championship = addPoints(winner, championship, 3)
+        else:
+            if (deltaScoreMatch < 0):
+                # Away wins
+                winner = away_team
+
+            else:
+                # Home wins
+                winner = home_team
+            percentages = scoreToPercentage(matchResult[0][0], matchResult[0][1])
+            if not(percentages[0] > 0.49 and percentages[0] < 0.51):
+                championship = addPoints(winner, championship, 3)
+
+        print(f"GROUP PHASE | {home_team} - {away_team}")
+
         print("SCORE: ", matchResult[0][0], " - ", matchResult[0][1])
-        percentages = scoreToPercentage(matchResult[0][0], matchResult[0][1])
         print(f"WINNING PROBABILITY: {percentages[0]} Vs {percentages[1]}")
 
-        # If very slight difference between the scores, we will say it is a draw since we are in the group phase
-        deltaScore = matchResult[0][0] - matchResult[0][1]
-        if(abs(deltaScore) < 0.02):
-            print("Very similar scores, we call it a draw, +1 to both team's score")
-            championship = addPoints(team1, championship, 1)
-            championship = addPoints(team2, championship, 1)
+        if (percentages[0] > 0.49 and percentages[0] < 0.51):
+            # Draw, we add +1 to both teams
+            print("Very similar scores, +1 to both teams")
+            championship = addPoints(home_team, championship, 1)
+            championship = addPoints(away_team, championship, 1)
         else:
-            if(deltaScore > 0):
-                print(f"{team1} won, +3")
-                championship = addPoints(team1, championship, 3)
-            else:
-                print(f"{team2} won, +3")
-                championship = addPoints(team2, championship, 3)
+            print(f"{winner} wins the match")
 
     return championship
 
@@ -206,31 +228,49 @@ def simulateKnockoutPhase(remainingCountries, city_host, country_host, numerical
     print("MATCHES TO PLAY: ", matchesToPlay)
     print("")
     for i in matchesToPlay:
-        winner = ""
+        home_team = i[0]
+        away_team = i[1]
 
-        # Prediction of the match
-        matchDF = getMatchDataFrame(i[0], i[1], city_host, country_host, numericalColumns, trainingColumns)
+        matchDF = getMatchDataFrame(home_team, away_team, city_host, country_host, numericalColumns, trainingColumns)
+        reverseMatchDF = getMatchDataFrame(away_team, home_team, city_host, country_host, numericalColumns, trainingColumns)
+
         matchResult = randomForestModel.predict(matchDF)
+        reverseMatchResult = randomForestModel.predict(reverseMatchDF)
 
-        print(f"KNOCKOUT PHASE | {i[0]} - {i[1]}")
+        deltaScoreMatch = matchResult[0][0] - matchResult[0][1]
+        deltaScoreReverseMatch = reverseMatchResult[0][0] - reverseMatchResult[0][1]
+
+        if (abs(deltaScoreReverseMatch) > abs(deltaScoreMatch)):
+            # Reverse match has a bigger delta
+            if (deltaScoreReverseMatch < 0):
+                # Home wins
+                winner = home_team
+            else:
+                # Away wins
+                winner = away_team
+            matchResult[0][0] = reverseMatchResult[0][1]
+            matchResult[0][1] = reverseMatchResult[0][0]
+            percentages = scoreToPercentage(reverseMatchResult[0][1], reverseMatchResult[0][0])
+        else:
+            if (deltaScoreMatch < 0):
+                # Away wins
+                winner = away_team
+            else:
+                # Home wins
+                winner = home_team
+            percentages = scoreToPercentage(matchResult[0][0], matchResult[0][1])
+
+        print(f"KNOCKOUT PHASE {home_team} - {away_team}")
+
         print("SCORE: ", matchResult[0][0], " - ", matchResult[0][1])
-        percentages = scoreToPercentage(matchResult[0][0], matchResult[0][1])
         print(f"WINNING PROBABILITY: {percentages[0]} Vs {percentages[1]}")
 
-        # We decide what to do according to the results we obtained
-        deltaScore = matchResult[0][0] - matchResult[0][1]
-        if (abs(deltaScore) < 0.02):
-            # If very slight difference between the scores, we will go to the shootouts to determine the winner
-            print("Very similar scores, we go to shootouts\n")
-            winner = decideShootoutsWinner(i[0], i[1])
-        else:
-            if (deltaScore > 0):
-                print(f"{i[0]} won, goes to the next stage\n")
-                winner = i[0]
-            else:
-                print(f"{i[1]} won, goes to the next stage\n")
-                winner = i[1]
+        if (percentages[0] > 0.49 and percentages[0] < 0.51):
+            # Draw, we will simulate the shootouts
+            print("Very similar scores, we go to shootouts")
+            winner = decideShootoutsWinner(home_team, away_team)
 
+        print(f"{winner} wins the match")
         remainingCountries.append(winner)
         print("")
     print("CURRENT PHASE WINNERS: ", remainingCountries)
@@ -339,7 +379,7 @@ if __name__ == '__main__':
 
     ## On déclare la date de début ainsi que la date de fin
 
-    start_date = '1996-01-01'
+    start_date = '2012-01-01'
     end_date = "2022-12-18"
 
     # Ici la date de la database ranking s'appelle rank_date. On la remplace avec date pour homogéniser avec les autres
@@ -591,7 +631,6 @@ if __name__ == '__main__':
         deltaScoreReverseMatch = reverseMatchResult[0][0] - reverseMatchResult[0][1]
 
         if(abs(deltaScoreReverseMatch) > abs(deltaScoreMatch)):
-            print("REVERSE MATCH has more value")
             # Reverse match has a bigger delta
             if(deltaScoreReverseMatch < 0):
                 # Home wins
