@@ -578,11 +578,49 @@ if __name__ == '__main__':
         city_host = program_arguments[3]
         country_host = program_arguments[4]
 
+        # We predict the match but in both side, A - B and B - A
+        # Because the model seems to be biased towards the home team
+        # And we take the biggest difference in score to deduce the winner
         matchDF = getMatchDataFrame(home_team, away_team, city_host, country_host, numericalColumns, X_train.columns)
+        reverseMatchDF = getMatchDataFrame(away_team, home_team, city_host, country_host, numericalColumns, X_train.columns)
+
         matchResult = randomForestModel.predict(matchDF)
+        reverseMatchResult = randomForestModel.predict(reverseMatchDF)
+
+        deltaScoreMatch = matchResult[0][0] - matchResult[0][1]
+        deltaScoreReverseMatch = reverseMatchResult[0][0] - reverseMatchResult[0][1]
+
+        if(abs(deltaScoreReverseMatch) > abs(deltaScoreMatch)):
+            print("REVERSE MATCH has more value")
+            # Reverse match has a bigger delta
+            if(deltaScoreReverseMatch < 0):
+                # Home wins
+                winner = home_team
+            else:
+                # Away wins
+                winner = away_team
+            matchResult[0][0] = reverseMatchResult[0][1]
+            matchResult[0][1] = reverseMatchResult[0][0]
+            percentages = scoreToPercentage(reverseMatchResult[0][1], reverseMatchResult[0][0])
+        else:
+            if(deltaScoreMatch < 0):
+                # Away wins
+                winner = away_team
+            else:
+                # Home wins
+                winner = home_team
+            percentages = scoreToPercentage(matchResult[0][0], matchResult[0][1])
+
         print(f"{home_team} - {away_team}")
+
         print("SCORE: ", matchResult[0][0], " - ", matchResult[0][1])
-        percentages = scoreToPercentage(matchResult[0][0], matchResult[0][1])
         print(f"WINNING PROBABILITY: {percentages[0]} Vs {percentages[1]}")
+
+        if(percentages[0] > 0.49 and percentages[0] < 0.51):
+            # Draw, we will simulate the shootouts
+            print("Very similar scores, we go to shootouts")
+            winner = decideShootoutsWinner(home_team, away_team)
+
+        print(f"{winner} wins the match")
 
     exit(0)
