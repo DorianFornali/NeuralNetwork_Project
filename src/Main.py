@@ -29,7 +29,7 @@ def prepareDataForEntry(match, numerical_columns, training_columns):
 
     # Normalizing numerical features
     ### WE DECIDE NOT TO NORMALIZE THE DATA FOR THE RANDOM FOREST REGRESSOR ###
-    # match[numerical_columns] = sc.transform(match[numerical_columns])
+    #match[numerical_columns] = sc.transform(match[numerical_columns])
     return match
 
 def getFeatureImportance(randomForestModel, training_columns):
@@ -63,6 +63,7 @@ def getMatchDataFrame(team1, team2, city, country, numericalColumns, training_co
     data['away_total_points'] = fifa_ranks.loc[fifa_ranks['country_full'] == team2, 'total_points'].values[-1]
     data['away_previous_points'] = fifa_ranks.loc[fifa_ranks['country_full'] == team1, 'previous_points'].values[-1]
     data['away_rank_change'] = fifa_ranks.loc[fifa_ranks['country_full'] == team2, 'rank_change'].values[-1]
+    data['rank_difference'] = data['home_rank'] - data['away_rank']
 
     # For the average scores, it's different since we fetch the information from a different dataset
     # which is rera_improved, since it contains all the data we added
@@ -379,7 +380,7 @@ if __name__ == '__main__':
 
     ## On déclare la date de début ainsi que la date de fin
 
-    start_date = '2012-01-01'
+    start_date = '1996-01-01'
     end_date = "2022-12-18"
 
     # Ici la date de la database ranking s'appelle rank_date. On la remplace avec date pour homogéniser avec les autres
@@ -392,8 +393,9 @@ if __name__ == '__main__':
     shoothouts_filtered = shootouts[(shootouts['date'] >= start_date) & (shootouts['date'] <= end_date)]
 
     # On prend que les matchs de Coupe du Monde ou de Qualification à la coupe du Monde
-    results_filtered = results_filtered[results_filtered['tournament'].isin(['FIFA World Cup', 'FIFA World Cup qualification'])]
-
+    results_filtered = results_filtered[results_filtered['tournament'].isin(
+        ['FIFA World Cup', 'FIFA World Cup qualification', 'UEFA Euro', 'Copa América', 'Oceania Nations Cup',
+         'African Cup of Nations', 'AFC Asian Cup'])]
     # On met un peu d'ordre dans la data base rankings, on ordonne premièrement par date pui par classement
     rankings_filtered = rankings_filtered.sort_values(by=['date', 'rank'])
 
@@ -478,6 +480,8 @@ if __name__ == '__main__':
     copy['away_averageScore'] = copy.groupby('away_team')['away_score'].rolling(window=5, min_periods=1).mean().reset_index(level=0, drop=True)
     copy.drop('Date', axis=1, inplace=True) # This column is in double
 
+    copy['rank_difference'] = copy['home_rank'] - copy['away_rank']
+
     to_CSV(copy,"rera_improved",False)
 
 
@@ -495,6 +499,8 @@ if __name__ == '__main__':
 
     rf_dataset = copy.copy(deep=True)
     rf_dataset = rf_dataset.drop(["date"], axis=1)
+    #rf_dataset = rf_dataset.drop(["home_averageScore"], axis=1)
+    #rf_dataset = rf_dataset.drop(["away_averageScore"], axis=1)
 
     # I decided to drop the date column because it is very troublesome for the prediction model
 
@@ -505,7 +511,8 @@ if __name__ == '__main__':
     # Now we separate the data into the training set and the test set
     y = rf_dataset[columnsToPredict]
 
-    columnsToDrop = ["tournament", "city", "country", "neutral", "home_team", "away_team", "home_score", "away_score"]
+    columnsToDrop = ["tournament", "city", "country", "neutral", "home_team", "away_team", "home_score",
+                     "away_score", "rank_difference"]
 
     X_numeric = rf_dataset.drop(columnsToDrop, axis=1).astype('float64')
     # X_numeric only contains the numeric features (before one-hot encoding)
@@ -544,6 +551,7 @@ if __name__ == '__main__':
     # Getting the meansquare of the model, features importance etc ...
     y_pred = randomForestModel.predict(X_test)
     print("RFG Mean square error on test set:", mean_squared_error(y_test, y_pred, squared=False))
+
     getFeatureImportance(randomForestModel, X_train.columns)
 
 
@@ -662,4 +670,6 @@ if __name__ == '__main__':
 
         print(f"{winner} wins the match")
 
+    print("Model's score on training data:", randomForestModel.score(X_train, y_train))
+    print("Model's score on testing data:", randomForestModel.score(X_test, y_test))
     exit(0)
