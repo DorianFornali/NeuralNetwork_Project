@@ -368,10 +368,10 @@ if __name__ == '__main__':
 
     if(len(program_arguments) not in [5, 6]):
         print("ERROR: Wrong number of arguments", file=sys.stderr)
-        print("Usage: python3 Main.py <path_to_championship_csv> <city_host> <country_host>",file=sys.stderr)
-        print("Example: python3 Main.py ../databases/championship.csv London England", file=sys.stderr)
-        print("Usage: python3 Main.py <home_team> <away_team> <city_host> <country_host>", file=sys.stderr)
-        print("Example: python3 Main.py France Germany London England", file=sys.stderr)
+        print("Usage: python3 Main.py <path_to_championship_csv> <city_host> <country_host> <model_to_use (RF / NN)>",file=sys.stderr)
+        print("Example: python3 Main.py ../databases/championship.csv London England RF", file=sys.stderr)
+        print("Usage: python3 Main.py <home_team> <away_team> <city_host> <country_host> <model_to_use (RF / NN)>", file=sys.stderr)
+        print("Example: python3 Main.py France Germany London England NN", file=sys.stderr)
 
         exit(1)
 
@@ -753,6 +753,10 @@ if __name__ == '__main__':
 
         print(f"{winner} wins the match")
 
-    print("Model's score on training data:", randomForestModel.score(X_train, y_train))
-    print("Model's score on testing data:", randomForestModel.score(X_test, y_test))
+    print("RF Model's score on training data:", randomForestModel.score(X_train, y_train))
+    print("RF Model's score on testing data:", randomForestModel.score(X_test, y_test))
+
+    print("Neural Network's score on training data:", nn.score(X_train, y_train))
+    print("Neural Network's score on testing data:", nn.score(X_test, y_test))
+
     exit(0)
