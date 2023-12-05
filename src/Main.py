@@ -6,7 +6,11 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.preprocessing import StandardScaler
+from sklearn.neural_network import MLPRegressor
+from sklearn import metrics
+import matplotlib.pyplot as plt
 
+import seaborn as sb
 
 def to_CSV(dataframe, nomDataframe, booleanIndex):
     path = f'../outputs/{nomDataframe}.csv'
@@ -147,8 +151,16 @@ def simulateGroupPhase(group, championship, country_host, numericalColumns, trai
             print("Please be careful and refer to FIFA_country_list.csv to see the exact spelling of the countries", file=sys.stderr)
             exit(1)
 
-        matchResult = randomForestModel.predict(matchDF)
-        reverseMatchResult = randomForestModel.predict(reverseMatchDF)
+        if(model=="RF"):
+            print("----------------------------------Random Forest Regressor Model Executing---------------------------")
+            matchResult = randomForestModel.predict(matchDF)
+            reverseMatchResult = randomForestModel.predict(reverseMatchDF)
+        else:
+            print("----------------------------------Neural Network Regressor Model Executing---------------------------")
+            matchResult = nn.predict(matchDF)
+            reverseMatchResult = nn.predict(reverseMatchDF)
+
+
 
         deltaScoreMatch = matchResult[0][0] - matchResult[0][1]
         deltaScoreReverseMatch = reverseMatchResult[0][0] - reverseMatchResult[0][1]
@@ -235,8 +247,16 @@ def simulateKnockoutPhase(remainingCountries, city_host, country_host, numerical
         matchDF = getMatchDataFrame(home_team, away_team, city_host, country_host, numericalColumns, trainingColumns)
         reverseMatchDF = getMatchDataFrame(away_team, home_team, city_host, country_host, numericalColumns, trainingColumns)
 
-        matchResult = randomForestModel.predict(matchDF)
-        reverseMatchResult = randomForestModel.predict(reverseMatchDF)
+        if(model=="RF"):
+            print("----------------------------------Random Forest Regressor Model Executing---------------------------")
+            matchResult = randomForestModel.predict(matchDF)
+            reverseMatchResult = randomForestModel.predict(reverseMatchDF)
+        else:
+            print("---------------------------------Neural Network Regressor Model Executing----------------------------")
+            matchResult = nn.predict(matchDF)
+            reverseMatchResult = nn.predict(reverseMatchDF)
+
+
 
         deltaScoreMatch = matchResult[0][0] - matchResult[0][1]
         deltaScoreReverseMatch = reverseMatchResult[0][0] - reverseMatchResult[0][1]
@@ -346,7 +366,7 @@ if __name__ == '__main__':
     program_arguments = sys.argv
 
 
-    if(len(program_arguments) not in [4, 5]):
+    if(len(program_arguments) not in [5, 6]):
         print("ERROR: Wrong number of arguments", file=sys.stderr)
         print("Usage: python3 Main.py <path_to_championship_csv> <city_host> <country_host>",file=sys.stderr)
         print("Example: python3 Main.py ../databases/championship.csv London England", file=sys.stderr)
@@ -355,7 +375,7 @@ if __name__ == '__main__':
 
         exit(1)
 
-    if(len(program_arguments) == 4):
+    if(len(program_arguments) == 5):
         # We predict a championship, we verify that the given file is correct before data processing,
         # not to loose useless time if the file is wrong
 
@@ -554,11 +574,64 @@ if __name__ == '__main__':
 
     getFeatureImportance(randomForestModel, X_train.columns)
 
+    # ---------------------------------------------------------------------------
+    # Neural Network Regressor ---------------------------------------------------
+    # ---------------------------------------------------------------------------
+    nn_dataset =rf_dataset
 
-    if(len(program_arguments) == 4):
+    # let's check The correlation between the features
+    numeric_columns = nn_dataset.select_dtypes(include=[np.number])
+    C_mat = numeric_columns.corr()
+
+    fig = plt.figure(figsize=(10, 10))
+
+    sb.heatmap(C_mat, vmax=.8, square=True)
+    #plt.show()#decomment this line if you want to see correlation
+
+
+    #---------------------------grid_searchCV phase
+    #this part of the code takes a long time to excute so I decided to manually print the best params just once and then
+    #using them directly in my function
+    # Create an MLPRegressor instance
+    mlp_regressor = MLPRegressor()
+
+    # Define the parameter grid
+    param_grid = {
+        'hidden_layer_sizes': [(100, 100,),(50,50)],
+        'activation': ['logistic'],
+        'learning_rate': ['constant', 'invscaling', 'adaptive'],
+        'max_iter': [900, 1000, 1100]
+
+    }
+
+    # Create GridSearchCV
+    #grid_search = GridSearchCV(mlp_regressor, param_grid, cv=5, scoring='neg_mean_squared_error', n_jobs=-1)
+
+    # Fit the model to the data
+    #grid_search.fit(X_train, y_train)
+
+    # Print the best parameters and corresponding score
+    # print("Best Parameters: ", grid_search.best_params_)
+    # defining our model
+    nn = MLPRegressor(hidden_layer_sizes=(100, 100,), activation='logistic', max_iter=1000)
+    # Now we train the model
+    nn.fit(X_train, y_train)
+    # calculating the errors
+    mae = metrics.mean_absolute_error(y_train, nn.predict(X_train))
+    mse = metrics.mean_squared_error(y_train, nn.predict(X_train))
+    rsq = metrics.r2_score(y_train, nn.predict(X_train))
+
+
+
+
+
+
+
+    if(len(program_arguments) == 5):
         # We used the script to predict a championship
         city_host = program_arguments[2]
         country_host = program_arguments[3]
+        model = program_arguments[4]
 
         # ---------------------------------------------------------------------------
         # CHAMPIONSHIP PREDICTION ---------------------------------------------------
@@ -613,7 +686,7 @@ if __name__ == '__main__':
         for i in championship.items():
             print(i[0], ": ", i[1])
 
-    if(len(program_arguments) == 5):
+    if(len(program_arguments) == 6):
         # ---------------------------------------------------------------------------
         # PREDICTION OF A SINGLE MATCH ----------------------------------------------
         # ---------------------------------------------------------------------------
@@ -625,6 +698,7 @@ if __name__ == '__main__':
         away_team = program_arguments[2]
         city_host = program_arguments[3]
         country_host = program_arguments[4]
+        model = program_arguments[5]
 
         # We predict the match but in both side, A - B and B - A
         # Because the model seems to be biased towards the home team
@@ -632,8 +706,17 @@ if __name__ == '__main__':
         matchDF = getMatchDataFrame(home_team, away_team, city_host, country_host, numericalColumns, X_train.columns)
         reverseMatchDF = getMatchDataFrame(away_team, home_team, city_host, country_host, numericalColumns, X_train.columns)
 
-        matchResult = randomForestModel.predict(matchDF)
-        reverseMatchResult = randomForestModel.predict(reverseMatchDF)
+        if(model=="RF"):
+            print("--------------Random Forest Model executing------------------")
+            matchResult = randomForestModel.predict(matchDF)
+            reverseMatchResult = randomForestModel.predict(reverseMatchDF)
+        else:
+            print("--------------Neural Network Model executing------------------")
+            matchResult = nn.predict(matchDF)
+            reverseMatchResult = nn.predict(reverseMatchDF)
+
+
+
 
         deltaScoreMatch = matchResult[0][0] - matchResult[0][1]
         deltaScoreReverseMatch = reverseMatchResult[0][0] - reverseMatchResult[0][1]
