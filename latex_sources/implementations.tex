@@ -1,0 +1,181 @@
+\chapter{Implementations of machine learning algorithms}
+
+\section{Random Forest}
+\subsection{Data Preparation}
+In addition to all of the data manipulation and preparation we did to our datasets, we need, in fact, one last preparation phase in order to correctly train the model with our data. 
+
+Since we work with a regressor random forest (and not a classifier), the model requires numerical data, which mean, for instance, the home\_team and away\_team features (=columns) need to be modified into numerical values.
+To achieve this, we one-hot encoded all our categorical features.
+One-hot encoding in machine learning is the conversion of categorical information into a format that may be fed into machine learning algorithms to improve prediction accuracy.
+
+
+To achieve this, we one-hot encoded all our categorical features.
+One-hot encoding in machine learning is the conversion of categorical information into a format that may be fed into machine learning algorithms to improve prediction accuracy.
+
+What it does in practice is to "divide" a feature into n features, where n is the amount of distinct values the feature had.
+
+For example, the following dataframe:
+\begin{table}[h]
+  \centering
+  \begin{tabular}{|c|}
+    \hline
+    Country\\
+    \hline
+    France
+     \\
+    \hline
+    England\\
+    \hline
+    Wales\\
+    \hline
+  \end{tabular}
+  \label{tab:exemple}
+\end{table}
+
+
+Will be encoded into the following dataframe:\\
+\begin{table}[h]
+  \centering
+  \begin{tabular}{|c|c|c|}
+    \hline
+    Country\_France & Country\_England & Country\_Wales \\
+    \hline
+    1 & 0 & 0 \\
+    \hline
+    0 & 1 & 0 \\
+    \hline
+    0 & 0 & 1 \\
+    \hline
+  \end{tabular}
+  \label{tab:exemple}
+\end{table}
+
+\newpage
+Using that method, we encoded every categorical features of our final dataset. 
+One other preparation we could have done for the model is to normalize our numerical values, to ensure every feature has the same impact and "weight"
+However, in the case of Random Forests, the nature of the algorithm, which builds decision trees based on feature splits, inherently handles varying scales without the need for explicit normalization.
+
+We tested this property and found it was true.\\
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.8\linewidth]{withNormalization.png}
+  \caption{Here the model's accuracy with the normalization}
+\end{figure}
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.8\linewidth]{withoutNormalization.png}
+  \caption{Here the model's accuracy without the normalization}
+\end{figure}
+
+\subsection{Training and best parameters}
+Our data is finally ready to be used by the random forest regressor.
+As mentionned earlier, we used scikit learn's RandomForestRegressor class as our model.
+The regressor variant allows us to target multiple features to predict in contrary to the classifier random forest.
+We chose to predict the $home\_score$ and $away\_score$, the amount of goals the teams scored.
+Scikitlearn also proposes the GridSearchCV class, a very powerful tool that will determine the best possible parameters configuration for the model.
+
+Once created and set with the best parameters, we need to train the model with our dataset. 
+It's our final step before being able to predict a match.
+
+In order to train the model we must split our dataframe into the training samples and the testing samples.
+We did that using the $test\_train\_split()$ function from scikitlearn model selection library.
+We decided to take 70\% of the dataframe for training purpose and thus 30\% for testing.
+
+For the training, scikitlearn proposes an already built-in function for the RandomForestRegressor class which is fit() that we used.
+In fact, things are a bit different in the project because we train the GridSearchCV, and we extract our trained model from this object.
+
+\begin{verbatim}
+randomForestModel = RandomForestRegressor(random_state=1)
+randomForestGridSearch = 
+GridSearchCV(randomForestModel, params, cv=5, verbose=1, n_jobs=-1)
+\end{verbatim}
+
+\noindent Then we train the model
+\begin{verbatim}
+randomForestGridSearch.fit(X_train, y_train)
+\end{verbatim}
+
+\noindent We apply to our model the best parameters found by the grid search
+\begin{verbatim}
+randomForestModel = randomForestGridSearch.best_estimator_
+\end{verbatim}
+
+
+\subsection{Prediction}
+To predict a match or a championship (see Championship part later) we need to give to our model an entry (a row) in the shape of what it has been trained on. Basically speaking, we give him as input a dataframe with a single row, without, obviously, the features to predict (the scores).
+The input also needs to be encoded the exact same way the training set was.
+In our code, the getMatchDataframe() does this job, with just the names of the playing countries and the city/country host of the match, we fetch all the remaining data to have our input.
+
+For example we fetch the latest rank from the FIFA ranking dataset, the latest averageScore from $rera\_improved$ and so on ...
+Also, the tournament in which the match takes place is always the FIFA World cup.
+We also one hot encode the dataframe the same way it was done for the model training set
+
+Finally, we use the predict() method of the model on that dataframe describing the match to predict the resulting scores.
+We convert these scores into a probability of winning with an exponential fonction. The team with the highest probability wins. If the probabilites are near 50\%, we "simulate" a shootout. (See shoutouts part)
+
+\subsection{Accuracy}
+Our regressor random forest has an accuracy of near 60\% on the testing set, which is not very good.
+\subsection{Difficulties encountered for the Random Forest}
+During the implementation of the Random Forest regressor, we met two main issues:
+ \begin{itemize}
+    \item[-] Understanding how to prepare the data for training the model was the hardest and longest part, which made us rollback 2 days of work to restart on a good base.
+    \item[-] The most complex one: the model seems to very largely advantage the $home\_team$ even if the match is played at a neutral location.
+
+\end{itemize}
+	In others words, France - England would output France as the winner, and England - France would output England even if the matches were played in Australia for instance.
+	Except when the strength difference was enough to outpower that disadvantage, the team on the left was always winning.
+	To counter this bias we decided to predict two times the match, once A vs B and a second time B vs A. We then chose as the winner the winner of the match which had the biggest score difference, we thought it was a good solution.
+\newpage
+\section{Neural Network regressed}
+\section{Comparison}
+\section{Championship}
+One goal of this project was to predict a championship.
+The championship is in the shape of a .csv file containing the team groups.
+
+First comes the group phase, where each team in a group plays a match against every other country in the same group. A win results in obtaining 3 points, and a draw 1 point for both team, there are no shootouts in this phase.
+
+Once all the matches are played, the two teams with the highest points of their team go to the knockout phase. 
+The knockout phase, the looser is eliminated and the winner goes to the next match, until one team is left, the champion.
+In this phase, if the model outputs a very similar probability of winning for both teams, we simulate a shootout between the two teams. (See shootouts part)
+
+Example of a championship predicted by the regressor random forest -
+Here we tried to predict the 2022 world cup
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.8\linewidth]{cdmGroupPhase.png}
+  \caption{Here are the group phase results with each team points}
+\end{figure}
+
+We can observe two main "anomalies" in these results, the Argentina is eliminated without reaching the knockout phase, and the Mexico won all its matches.
+It is very hard to predict a World Cup since pretty much everything can happen (see for example Morocco's performance in World cup 2022), so calling it an anomaly isn't very pertinent.
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.8\linewidth]{championshipPaint.png}
+  \caption{here is the knockout phase with the probabilities of win for every match}
+\end{figure}
+
+\newpage
+\section{Shootouts}
+
+%tableau à taille fixée sur certaines colonnes (param sur la ligne \begin{tabularx}, voir wiki pour plus d'info sur la syntaxe
+\begin{figure}[!h]
+\begin{center}
+\begin{tabularx}{17cm}{|c|p{6cm}|X|}
+  \hline
+  Priorité & Nom & Raison\\
+  \hline
+  1 & Tache 1 & Doit être vérifié en premier car sinon [...] \tabularnewline
+  2 & Tache 2 & On doit pouvoir [...] \tabularnewline
+  3 & Tache 3 & Comme les principales fonctionnalités permettant de tester sont opérationnelles, nous pouvons passer à cette tâche. \tabularnewline
+  4 & Tache 4 & Parce que [...] \tabularnewline
+  5 & Tache 5 & La tache 5 fait partie des principales [...]. \tabularnewline
+  6 & Tache 6 & Dernière fonctionnalité essentielle à mettre en place. \tabularnewline
+  7 & Tache 7 & Non-essentiel, mais apporterait un plus au projet. \tabularnewline
+  8 & Tache 8 & Non-essentiel, mais apporterait un plus au projet. \tabularnewline
+  \hline
+\end{tabularx}
+\end{center}
+\caption{Tableau récapitulatif des tâches}
+\end{figure}
