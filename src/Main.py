@@ -543,7 +543,7 @@ if __name__ == '__main__':
     X = pd.concat([X_numeric, dummies], axis=1)
 
     # Now we can split the data into the training set and the test set
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=10)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=10)
     # We can now normalize the data
     ### WE DECIDE NOT TO NORMALIZE THE DATA FOR THE RANDOM FOREST REGRESSOR ###
     #sc = StandardScaler().fit(X_train[numericalColumns])
@@ -570,7 +570,7 @@ if __name__ == '__main__':
 
     # Getting the meansquare of the model, features importance etc ...
     y_pred = randomForestModel.predict(X_test)
-    print("RFG Mean square error on test set:", mean_squared_error(y_test, y_pred, squared=False))
+    RF_MSE = mean_squared_error(y_test, y_pred)
 
     getFeatureImportance(randomForestModel, X_train.columns)
 
@@ -755,8 +755,10 @@ if __name__ == '__main__':
 
     print("RF Model's score on training data:", randomForestModel.score(X_train, y_train))
     print("RF Model's score on testing data:", randomForestModel.score(X_test, y_test))
+    print("RF Model's Mean Square Error on training data:", RF_MSE)
 
     print("Neural Network's score on training data:", nn.score(X_train, y_train))
     print("Neural Network's score on testing data:", nn.score(X_test, y_test))
+    print("Neural Network's Mean Square Error on training data:", mse)
 
     exit(0)

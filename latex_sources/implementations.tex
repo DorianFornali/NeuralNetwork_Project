@@ -116,6 +116,8 @@ We convert these scores into a probability of winning with an exponential foncti
 
 \subsection{Accuracy}
 Our regressor random forest has an accuracy of near 60\% on the testing set, which is not very good.
+Also, it appears that the model has a mean square error near 1, which is extremely high considering the predicted scores vary between 0.2 and 2.0.
+Even although to us humans, the results are pretty decent, in a mathematical point of view the model is pretty unusable.
 \subsection{Difficulties encountered for the Random Forest}
 During the implementation of the Random Forest regressor, we met two main issues:
  \begin{itemize}
