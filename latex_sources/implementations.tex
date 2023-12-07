@@ -130,18 +130,68 @@ During the implementation of the Random Forest regressor, we met two main issues
 	To counter this bias we decided to predict two times the match, once A vs B and a second time B vs A. We then chose as the winner the winner of the match which had the biggest score difference, we thought it was a good solution.
 \newpage
 \section{Neural Network regressed}
-\section{Comparison}
+
+
+\textbf{Variables Correlation}\\
+\\
+The correlation is a statistical metric that determines the relationship between two variables. If two variables are highly correlated then we can predict one from the other.therefore,we should provide to our model only features that are highly correlated with our target
+for this purpose we used matplotlib library,the plt.show method displays the correlation between the columns of our dataset
+
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.8\linewidth]{NNLregressor.png}
+  \caption{Correlation between columns}
+\end{figure}
+ 
+\noindent \textbf{Neural Network Regressor}\\
+\\
+After implementing any Machine learning Model,it is highly recommended to implement another model in order to be able to evaluate  its performance compared to other models,this also allows us to find out whether some particular models are better for predicting our dataset.
+ In this section,we are going to implement a Neural Network Regressor and compare its performances to the Random forest model implemented in the previous section\\
+\newpage
+
+ \begin{quote}
+\textbf{Data preparation}\\
+\\
+Since we have already prepared our data in the previous section for training the Random Forest Model we decided to use the same data for the Neural Network Regressor.\\
+\\
+\textbf{Implementation}\\
+\\ 
+We used scikit-learn which is a very popular library for python that provides various implementation of neural network regressors and we created an MLPRegressor using 3 parameters:\\
+ \begin{quote}
+hidden\_layer\_size: this parameter represents the number of neurons in each hidden layer,in our case we used 2 hidden layers with 100 neurons each\\
+\end{quote}
+ \begin{quote}
+activation: we used the logistic sigmoid as the activation function for the hidden layers.\\
+\end{quote}
+ \begin{quote}
+max\_iter: this parameter represents the maximum number of iterations for the solver to converge, we set it to 1000
+After defining our model we call the fit method in order to train our model on the provided training data\\
+\end{quote}
+\end{quote}
+
+\\
+\noindent \textbf{Results}\\
+\\
+The neural network model is not giving very good results comparing to the random forest\\
+
+
+\noindent \textbf{Conclusion}\\
+
+\noindent We can conclude that the neural networks,especially deep learning models, require very huge amount of data in order to give good results and avoid overfitting,and since our dataset is tabular and small it is more recommended to use simpler models like decision trees or random forest .this conclusion leads as to say that the choice of the most performant algorithm depends on the specific problem and the structure of the dataset 
+
+
+\newpage
 \section{Championship}
 One goal of this project was to predict a championship.
-The championship is in the shape of a .csv file containing the team groups.
+The championship is in the shape of a .csv file containing the team groups.\\
 
-First comes the group phase, where each team in a group plays a match against every other country in the same group. A win results in obtaining 3 points, and a draw 1 point for both team, there are no shootouts in this phase.
+\noindent First comes the group phase, where each team in a group plays a match against every other country in the same group. A win results in obtaining 3 points, and a draw 1 point for both team, there are no shootouts in this phase.\\
 
-Once all the matches are played, the two teams with the highest points of their team go to the knockout phase. 
+\noindent Once all the matches are played, the two teams with the highest points of their team go to the knockout phase. 
 The knockout phase, the looser is eliminated and the winner goes to the next match, until one team is left, the champion.
-In this phase, if the model outputs a very similar probability of winning for both teams, we simulate a shootout between the two teams. (See shootouts part)
+In this phase, if the model outputs a very similar probability of winning for both teams, we simulate a shootout between the two teams. (See shootouts part)\\
 
-Example of a championship predicted by the regressor random forest -
+\noindent Example of a championship predicted by the regressor random forest -
 Here we tried to predict the 2022 world cup
 \begin{figure}[h]
   \centering
@@ -160,3 +210,6 @@ It is very hard to predict a World Cup since pretty much everything can happen (
 
 \newpage
 \section{Shootouts}
+To simulate the shootouts between two teams in the case of a draw (except during group phase), we decided not to use any machine learning technique: integrating the shootouts in the dataset the model learns from was almost impossible, and considering how extremely rare we face a draw with our models, creating another model, whose sole purpose would be to predict the outcome of the shootouts, was overkill and a loss of time.
+To determine the winner of a shootouts, we simply check the history of shootouts between the two teams, if A has beaten B more times than B beat A, then A wins, if they are equals in terms of wins against eachother, the highest ranked team wins.
+It is a very naive way of predicting the winner, creating another model to solely predict the shootouts would be the best option.
