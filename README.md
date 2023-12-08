@@ -16,7 +16,7 @@ Having installed the following libraries:
     - Seaborn
 
 # USAGE:
-First, execute the preprocessing script located in the ./pre folder
+First, inside the 'pre' folder, execute the preprocessing script to pre-process the datasets.
 ```
 python ./pre/pre_process.py
 ```
