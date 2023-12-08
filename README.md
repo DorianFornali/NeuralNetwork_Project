@@ -8,8 +8,19 @@ This was achieved using machine learning on two datasets:
 
 The prediction is done with a Regressor Random Forest or a Multi layer perceptron model of neural network.
 
-USAGE:
-Inside src folder,
+# Requirements -
+Having installed the following libraries:
+    - Pandas
+    - Scikitlearn
+    - Matplotlib
+    - Seaborn
+
+# USAGE:
+First, execute the preprocessing script located in the ./pre folder
+```
+python ./pre/pre_process.py
+```
+Then inside src folder,
 ```
 python ./Main.py <Country1> <Country2> <City_Host> <Country_Host> <Predictor_Model>
 ```
@@ -24,6 +35,6 @@ python ./Main.py <path_to_championshipfile> <City_Host> <Country_Host> <Predicto
     The countries must appear in the file databases/FIFA_country_list.csv and have the same spelling
 
 # AUTHORS: 
-# Yasmine Moussaoui
-# Dorian Fornali
-# Guillermo Wauquier
+ Yasmine Moussaoui
+ Dorian Fornali
+ Guillermo Wauquier
