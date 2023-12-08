@@ -18,7 +18,7 @@ Having installed the following libraries:
 # USAGE:
 First, inside the 'pre' folder, execute the preprocessing script to pre-process the datasets.
 ```
-python ./pre/pre_process.py
+python ./pre_process.py
 ```
 Then inside src folder,
 ```
