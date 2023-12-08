@@ -35,6 +35,6 @@ python ./Main.py <path_to_championshipfile> <City_Host> <Country_Host> <Predicto
     The countries must appear in the file databases/FIFA_country_list.csv and have the same spelling
 
 # AUTHORS: 
- Yasmine Moussaoui
- Dorian Fornali
- Guillermo Wauquier
+Yasmine Moussaoui
+Dorian Fornali
+Guillermo Wauquier
